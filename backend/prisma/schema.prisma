@@ -1,0 +1,369 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Khoa {
+  id       String   @id @default(uuid()) @db.Uuid
+  tenkhoa  String   @unique @db.VarChar(50)
+  webkhoa  String?  @db.VarChar(100)
+  Lop      Lop[]
+}
+
+model NienKhoa {
+  id           String   @id @default(uuid()) @db.Uuid
+  tennk        String   @unique @db.VarChar(50)
+  namnhaphoc   DateTime? @db.Date
+  namtotnghiep DateTime? @db.Date
+  Lop          Lop[]
+}
+
+model Lop {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenlop     String   @db.VarChar(30)
+  sosv       Int?     @default(0) @db.SmallInt
+  khoaid     String   @db.Uuid
+  khoa       Khoa     @relation(fields: [khoaid], references: [id])
+  nienkhoaid String   @db.Uuid
+  nienkhoa   NienKhoa @relation(fields: [nienkhoaid], references: [id])
+  NguoiDung  NguoiDung[]
+}
+
+model VaiTro {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenvt     String    @unique @db.VarChar(50)
+  mota      String?
+  quyenhan  Json?
+  ngaytao   DateTime  @default(now())
+  NguoiDung NguoiDung[]
+}
+
+enum Gender {
+  nam
+  nu
+  khac
+}
+
+enum TrangThaiNguoiDung {
+  hot
+  kho
+  trung_thi
+}
+
+model NguoiDung {
+  id                  String     @id @default(uuid()) @db.Uuid
+  maso                String     @unique @db.VarChar(15)
+  hoten               String     @db.VarChar(50)
+  ngaysinh            DateTime?  @db.Date
+  gt                  Gender?
+  lopid               String     @db.Uuid
+  lop                 Lop        @relation(fields: [lopid], references: [id])
+  matkhau             String     @db.VarChar(255)
+  vaitroid            String?    @db.Uuid
+  vaiTro              VaiTro?    @relation(fields: [vaitroid], references: [id])
+  trangthai           TrangThaiNguoiDung?
+  ngaytao             DateTime   @default(now())
+  ngaycapnhat         DateTime   @default(now())
+  lancuoidn           DateTime?
+  solandn             Int        @default(0)
+  diachiipcuoi        String?    @db.Inet
+  tokenresetpassword  String?    @db.VarChar(255)
+  tghethantoken       DateTime?
+  anhdaidien          String?    @db.VarChar(255)
+  cccd                String?    @db.VarChar(12)
+  ThongTinLienHe      ThongTinLienHe[]
+  // Quan hệ tạo loại hoạt động và đợt đánh giá
+  LoaiHoatDongsToiTao LoaiHoatDong[] @relation("LoaiHoatDongNguoiTao")
+  DotDanhGiasToiTao   DotDanhGia[]   @relation("DotDanhGiaNguoiTao")
+  HoatDongsToiTao     HoatDong[] @relation("NguoiTao")
+  HoatDongsDuyet      HoatDong[] @relation("NguoiDuyet")
+  DangKyHoatDongs     DangKyHoatDong[] @relation("SinhVien")
+  DangKyHoatDongDuyets DangKyHoatDong[] @relation("NguoiDuyet")
+  DiemDanhsThucHien   DiemDanh[] @relation("DiemDanhNguoiDiemDanh")
+  DiemDanhsSinhVien   DiemDanh[] @relation("DiemDanhSinhVien")
+  DiemRenLuyens       DiemRenLuyen[] @relation("DiemRenLuyenSinhVien")
+  DiemRenLuyenXacNhs  DiemRenLuyen[] @relation("DiemRenLuyenNguoiXacNhan")
+  BangDiemTongHops    BangDiemTongHop[] @relation("SinhVien")
+  BangDiemXacNhs      BangDiemTongHop[] @relation("NguoiXacNhan")
+  ThongBaosGui        ThongBao[] @relation("NguoiGui")
+  ThongBaosNhan       ThongBao[] @relation("NguoiNhan")
+  ThongBaosThucHien   ThongBao[] @relation("NguoiThucHien")
+  PhienDangNhaps      PhienDangNhap[]
+  LichSuHoatDongs     LichSuHoatDong[]
+}
+
+model ThongTinLienHe {
+  id          String    @id @default(uuid()) @db.Uuid
+  nguoidungid String    @db.Uuid
+  nguoidung   NguoiDung @relation(fields: [nguoidungid], references: [id])
+  loailh      String?   @db.VarChar(20)
+  giatri      String
+  uutien      Int       @default(1) @db.SmallInt
+  ngaytaolh   DateTime  @default(now())
+
+  @@unique([nguoidungid, loailh])
+}
+
+model LoaiHoatDong {
+  id          String     @id @default(uuid()) @db.Uuid
+  tenloai     String     @unique @db.VarChar(100)
+  mota        String?
+  diemmacdinh Decimal?   @default(0) @db.Decimal(4, 2)
+  diemtdmoihd Decimal?   @default(0) @db.Decimal(4, 2)
+  diemtddot   Decimal?   @default(0) @db.Decimal(4, 2)
+  mausac      String?    @db.VarChar(7)
+  nguoitaoid  String?    @db.Uuid
+  nguoiTao    NguoiDung? @relation("LoaiHoatDongNguoiTao", fields: [nguoitaoid], references: [id])
+  ngaytao     DateTime   @default(now())
+  HoatDongs   HoatDong[]
+  ChiTietBangDiems ChiTietBangDiem[]
+}
+
+enum TrangThaiDotDanhGia {
+  cho_mo
+  dang_mo
+  dong
+  hoan_thanh
+}
+
+model DotDanhGia {
+  id             String     @id @default(uuid()) @db.Uuid
+  tendot         String?    @db.VarChar(100)
+  namhoc         String?    @db.VarChar(20)
+  hocky          Int?       @db.SmallInt
+  ngaybddot      DateTime?  @db.Date
+  ngayktdot      DateTime?  @db.Date
+  trangthai      TrangThaiDotDanhGia?
+  mota           String?
+  nguoitaoid     String?    @db.Uuid
+  nguoiTao       NguoiDung? @relation("DotDanhGiaNguoiTao", fields: [nguoitaoid], references: [id])
+  ngaytao        DateTime   @default(now())
+  HoatDongs      HoatDong[]
+  DiemRenLuyens  DiemRenLuyen[]
+  BangDiemTongHops BangDiemTongHop[]
+}
+
+enum TrangThaiHoatDong {
+  cho_duyet
+  duyet
+  tu_choi
+  hoan_thanh
+}
+
+model HoatDong {
+  id             String     @id @default(uuid()) @db.Uuid
+  mahd           String?    @unique @db.VarChar(50)
+  tenhd          String     @db.VarChar(200)
+  mota           String?
+  loaihdid       String?    @db.Uuid
+  loaiHoatDong   LoaiHoatDong? @relation(fields: [loaihdid], references: [id])
+  dotdgid        String?    @db.Uuid
+  dotDanhGia     DotDanhGia? @relation(fields: [dotdgid], references: [id])
+  diemrl         Float?     @default(0)
+  diadiemtc      String?    @db.VarChar(200)
+  ngaybd         DateTime
+  ngaykt         DateTime
+  handangky      DateTime?
+  sltoida        Int?       @default(0)
+  donvitc        String?    @db.VarChar(100)
+  yeucau         String?
+  trangthaihd    TrangThaiHoatDong?
+  lydotuchoi     String?
+  maqr           String?    @unique @db.Char(32)
+  nguoitaoid     String?    @db.Uuid
+  nguoiTao       NguoiDung? @relation("NguoiTao", fields: [nguoitaoid], references: [id])
+  nguoiduyetid   String?    @db.Uuid
+  nguoiDuyet     NguoiDung? @relation("NguoiDuyet", fields: [nguoiduyetid], references: [id])
+  ngaytao        DateTime   @default(now())
+  ngayduyet      DateTime?
+  DangKyHoatDongs DangKyHoatDong[]
+  DiemDanhs      DiemDanh[]
+  ChiTietDiemRL  ChiTietDiemRL[]
+}
+
+model DangKyHoatDong {
+  id           String    @id @default(uuid()) @db.Uuid
+  svid         String    @db.Uuid
+  sinhVien     NguoiDung @relation("SinhVien", fields: [svid], references: [id])
+  nguoiduyetid String?   @db.Uuid
+  nguoiDuyet   NguoiDung? @relation("NguoiDuyet", fields: [nguoiduyetid], references: [id])
+  ngayduyet    DateTime?
+  hdid         String    @db.Uuid
+  hoatDong     HoatDong  @relation(fields: [hdid], references: [id])
+  ngaydangky   DateTime  @default(now())
+  lydodk       String?
+  lydotuchoi   String?
+  ghichubtc    String?
+}
+
+enum PhuongThucDiemDanh {
+  QR
+}
+
+model DiemDanh {
+  id               String     @id @default(uuid()) @db.Uuid
+  nguoidiemdanhid  String?    @db.Uuid
+  nguoiDiemDanh    NguoiDung? @relation("DiemDanhNguoiDiemDanh", fields: [nguoidiemdanhid], references: [id])
+  svid             String     @db.Uuid
+  sinhVien         NguoiDung  @relation("DiemDanhSinhVien", fields: [svid], references: [id])
+  hdid             String     @db.Uuid
+  hoatDong         HoatDong   @relation(fields: [hdid], references: [id])
+  tgdiemdanh       DateTime   @default(now())
+  phuongthuc       PhuongThucDiemDanh?
+  trangthai        String?    @db.VarChar(20)
+  ghichu           String?
+  diachiip         String?    @db.Inet
+  vitrigps         Unsupported("point")
+  xacnhanthamgia   Boolean    @default(true)
+}
+
+enum TrangThaiDiemRenLuyen {
+  cho_xac_nhan
+  da_xac_nhan
+  co_khieu_nai
+}
+
+model DiemRenLuyen {
+  id            String     @id @default(uuid()) @db.Uuid
+  svid          String     @db.Uuid
+  sinhVien      NguoiDung  @relation("DiemRenLuyenSinhVien", fields: [svid], references: [id])
+  nguoixnid     String?    @db.Uuid
+  nguoiXacNhat  NguoiDung? @relation("DiemRenLuyenNguoiXacNhan", fields: [nguoixnid], references: [id])
+  dotdgid       String?    @db.Uuid
+  dotDanhGia    DotDanhGia? @relation(fields: [dotdgid], references: [id])
+  tongdiem      Decimal?   @default(0) @db.Decimal(4, 2)
+  sohdthamgia   Int?       @default(0)
+  trangthai     TrangThaiDiemRenLuyen?
+  ngayxacnhan   DateTime?
+  ghichu        String?
+  ngaycapnhat   DateTime   @default(now())
+  ChiTietDiemRL ChiTietDiemRL[]
+}
+
+model ChiTietDiemRL {
+  id            String      @id @default(uuid()) @db.Uuid
+  diemrlid      String      @db.Uuid
+  diemRenLuyen  DiemRenLuyen @relation(fields: [diemrlid], references: [id])
+  hdid          String      @db.Uuid
+  hoatDong      HoatDong    @relation(fields: [hdid], references: [id])
+  diemdatduoc   Decimal?    @default(0) @db.Decimal(4, 2)
+  cochungchi    Boolean     @default(false)
+  loaichungchi  String?     @db.VarChar(100)
+  ngaycd        DateTime    @default(now())
+}
+
+enum TrangThaiBangDiem {
+  tam_tinh
+  chinh_thuc
+  co_khieu_nai
+}
+
+enum XepLoai {
+  xuat_sac
+  gioi
+  kha
+  trung_binh
+  yeu
+  kem
+}
+
+model BangDiemTongHop {
+  id             String      @id @default(uuid()) @db.Uuid
+  svid           String      @db.Uuid
+  sinhVien       NguoiDung   @relation("SinhVien", fields: [svid], references: [id])
+  nguoixacnhanid String      @db.Uuid
+  nguoiXacNhan   NguoiDung   @relation("NguoiXacNhan", fields: [nguoixacnhanid], references: [id])
+  dotdgid        String      @db.Uuid
+  dotDanhGia     DotDanhGia  @relation(fields: [dotdgid], references: [id])
+  diemdatduoc    Float?      @default(0)
+  sohdthamgia    Int?        @default(0)
+  trangthaibd    TrangThaiBangDiem?
+  ngayxacnhan    DateTime?
+  ghichu         String?
+  xeploai        XepLoai?
+  ngaycapnhat    DateTime    @default(now())
+  ChiTietBangDiem ChiTietBangDiem[]
+}
+
+model ChiTietBangDiem {
+  id            String        @id @default(uuid()) @db.Uuid
+  bangdiemid    String        @db.Uuid
+  bangDiem      BangDiemTongHop @relation(fields: [bangdiemid], references: [id])
+  loaihdid      String        @db.Uuid
+  loaiHoatDong  LoaiHoatDong @relation(fields: [loaihdid], references: [id])
+  diemdatduoc   Float?
+  sohdtg        Int?          @default(0)
+}
+
+model LoaiThongBao {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenloaitb  String    @db.VarChar(50)
+  ThongBao   ThongBao[]
+}
+
+enum MucDoUuTien {
+  thap
+  trung_binh
+  cao
+  khan_cap
+}
+
+model ThongBao {
+  id              String        @id @default(uuid()) @db.Uuid
+  tieude          String        @db.VarChar(200)
+  noidung         String
+  loaitbid        String?       @db.Uuid
+  loaiThongBao    LoaiThongBao? @relation(fields: [loaitbid], references: [id])
+  nguoiguiid      String?       @db.Uuid
+  nguoiGui        NguoiDung?    @relation("NguoiGui", fields: [nguoiguiid], references: [id])
+  nguoinhanid     String?       @db.Uuid
+  nguoiNhan       NguoiDung?    @relation("NguoiNhan", fields: [nguoinhanid], references: [id])
+  lienketid       String?
+  loailienket     String?       @db.VarChar(50)
+  dadoc           Boolean       @default(false)
+  mucdouutien     MucDoUuTien?
+  nguoithuchienid String?       @db.Uuid
+  nguoiThucHien   NguoiDung?    @relation("NguoiThucHien", fields: [nguoithuchienid], references: [id])
+  thoigian        DateTime      @default(now())
+}
+
+enum TrangThaiPhienDangNhap {
+  hoat_dong
+  ket_thuc
+  het_han
+}
+
+model PhienDangNhap {
+  id           String    @id @default(uuid()) @db.Uuid
+  nguoidungid  String    @db.Uuid
+  nguoiDung    NguoiDung @relation(fields: [nguoidungid], references: [id])
+  tgdangnhap   DateTime  @default(now())
+  tgdangxuat   DateTime?
+  diachiip     String?   @db.Inet
+  useragent    String?
+  trangthai    TrangThaiPhienDangNhap?
+}
+
+model LichSuHoatDong {
+  id              String    @id @default(uuid()) @db.Uuid
+  banglienquan    String    @db.VarChar(50)
+  idbangghi       String    @db.Uuid
+  hanhdong        String    @db.VarChar(20)
+  dulieucu        Json?
+  dulieumoi       Json?
+  nguoithuchienid String?   @db.Uuid
+  nguoiThucHien   NguoiDung? @relation(fields: [nguoithuchienid], references: [id])
+  thoigian        DateTime  @default(now())
+  diachiip        String?   @db.Inet
+  useragent       String?
+  motahanhdong    String?
+}
