@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { userService, healthService } from '../services/api';
+import { userService, healthService, dashboardService, activitiesService } from '../services/api';
 import { toast } from 'react-hot-toast';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
+  const [summary, setSummary] = useState({ totalActiveStudents: 0, ongoingActivities: 0, averageScore: 0 });
+  const [ongoingActivities, setOngoingActivities] = useState([]);
+  const [myActivities, setMyActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [healthStatus, setHealthStatus] = useState(null);
   const [activeTab, setActiveTab] = useState(user?.role || 'student');
@@ -32,17 +35,30 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Kiểm tra health status
         const healthResponse = await healthService.check();
         const healthPayload = healthResponse.data?.data || healthResponse.data;
         setHealthStatus(healthPayload);
 
-        // Lấy danh sách users
         const usersResponse = await userService.getUsers();
         const usersPayload = usersResponse.data?.data || usersResponse.data;
         setUsers(Array.isArray(usersPayload) ? usersPayload : []);
+
+        const [summaryRes, ongoingRes, myRes] = await Promise.all([
+          dashboardService.getSummary(),
+          dashboardService.getOngoingActivities(),
+          dashboardService.getMyActivities()
+        ]);
+        const s = summaryRes.data?.data || summaryRes.data || {};
+        setSummary({
+          totalActiveStudents: Number(s.totalActiveStudents || 0),
+          ongoingActivities: Number(s.ongoingActivities || 0),
+          averageScore: Number(s.averageScore || 0)
+        });
+        const acts = ongoingRes.data?.data || ongoingRes.data || [];
+        setOngoingActivities(Array.isArray(acts) ? acts : []);
+        const mine = myRes.data?.data || myRes.data || [];
+        setMyActivities(Array.isArray(mine) ? mine : []);
       } catch (error) {
-        // Xử lý lỗi validation từ backend
         if (error.response?.data?.errors) {
           const errors = error.response.data.errors;
           errors.forEach(err => {
@@ -60,8 +76,41 @@ const Dashboard = () => {
     fetchData();
   }, []);
 
-  const handleActivityRegister = (activityName) => {
-    toast.success(`Đã đăng ký tham gia: ${activityName}`);
+  const refreshMyData = async () => {
+    try {
+      const [ongoingRes, myRes, summaryRes] = await Promise.all([
+        dashboardService.getOngoingActivities(),
+        dashboardService.getMyActivities(),
+        dashboardService.getSummary(),
+      ]);
+      const acts = ongoingRes.data?.data || ongoingRes.data || [];
+      setOngoingActivities(Array.isArray(acts) ? acts : []);
+      const mine = myRes.data?.data || myRes.data || [];
+      setMyActivities(Array.isArray(mine) ? mine : []);
+      const s = summaryRes.data?.data || summaryRes.data || {};
+      setSummary({
+        totalActiveStudents: Number(s.totalActiveStudents || 0),
+        ongoingActivities: Number(s.ongoingActivities || 0),
+        averageScore: Number(s.averageScore || 0)
+      });
+    } catch (e) {
+      // ignore UI refresh failure
+    }
+  };
+
+  const handleActivityRegister = async (activityId, activityName) => {
+    try {
+      await activitiesService.register(activityId);
+      toast.success(`Đã đăng ký tham gia: ${activityName}`);
+      refreshMyData();
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Đăng ký thất bại';
+      if (error.response?.data?.errors) {
+        error.response.data.errors.forEach((err) => toast.error(`${err.field}: ${err.message}`));
+      } else {
+        toast.error(msg);
+      }
+    }
   };
 
   const handleQRScan = () => {
@@ -87,12 +136,11 @@ const Dashboard = () => {
               <i className="fas fa-users text-blue-600 text-xl"></i>
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">Tổng sinh viên</p>
-              <p className="text-2xl font-bold text-gray-800">1,245</p>
+              <p className="text-sm text-gray-600">Tổng sinh viên đang hoạt động</p>
+              <p className="text-2xl font-bold text-gray-800">{summary.totalActiveStudents}</p>
             </div>
           </div>
         </div>
-        
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300">
           <div className="flex items-center">
             <div className="p-3 bg-green-100 rounded-full">
@@ -100,13 +148,10 @@ const Dashboard = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm text-gray-600">Hoạt động đang diễn ra</p>
-              <p className="text-2xl font-bold text-gray-800">28</p>
+              <p className="text-2xl font-bold text-gray-800">{summary.ongoingActivities}</p>
             </div>
           </div>
         </div>
-        
-
-        
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300">
           <div className="flex items-center">
             <div className="p-3 bg-purple-100 rounded-full">
@@ -114,7 +159,7 @@ const Dashboard = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm text-gray-600">Điểm trung bình</p>
-              <p className="text-2xl font-bold text-gray-800">85.7</p>
+              <p className="text-2xl font-bold text-gray-800">{summary.averageScore.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -139,7 +184,7 @@ const Dashboard = () => {
             ))}
           </nav>
         </div>
-        
+
         <div className="p-6">
           {/* Dashboard sinh viên */}
           {activeTab === 'student' && (
@@ -151,7 +196,7 @@ const Dashboard = () => {
                   <div className="space-y-3">
                     <div className="flex items-center">
                       <i className="fas fa-id-card text-blue-600 w-5"></i>
-                      <span className="ml-3 text-sm">MSSV: 21130001</span>
+                      <span className="ml-3 text-sm">MSSV: {user?.maso || 'N/A'}</span>
                     </div>
                     <div className="flex items-center">
                       <i className="fas fa-user text-blue-600 w-5"></i>
@@ -159,35 +204,12 @@ const Dashboard = () => {
                     </div>
                     <div className="flex items-center">
                       <i className="fas fa-building text-blue-600 w-5"></i>
-                      <span className="ml-3 text-sm">Khoa CNTT - Lớp 21DTH1</span>
+                      <span className="ml-3 text-sm">{user?.khoa || 'Khoa N/A'} - Lớp {user?.lop || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
-                
-                {/* Tiến độ điểm */}
-                <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                  <h3 className="text-lg font-semibold mb-4">Tiến độ điểm rèn luyện</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-sm">Học kỳ 1: 85/100</span>
-                        <span className="text-sm">85%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-green-600 h-2 rounded-full" style={{width: '85%'}}></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-sm">Học kỳ 2: 45/100</span>
-                        <span className="text-sm">45%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-yellow-500 h-2 rounded-full" style={{width: '45%'}}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+
+                {/* Bỏ tiến độ điểm rèn luyện theo yêu cầu */}
               </div>
 
               {/* Đăng ký hoạt động */}
@@ -199,35 +221,39 @@ const Dashboard = () => {
                       <i className="fas fa-search mr-2"></i>Tìm kiếm
                     </button>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Thẻ hoạt động */}
-                    {[
-                      { name: 'Hội thao khoa CNTT 2024', type: 'Đoàn - Hội', desc: 'Thi đấu các môn thể thao giữa các lớp', points: 15, days: 2, color: 'green' },
-                      { name: 'Đêm hội văn nghệ sinh viên', type: 'Văn nghệ', desc: 'Biểu diễn văn nghệ chào mừng năm học mới', points: 20, days: 5, color: 'purple' },
-                      { name: 'Giải bóng đá sinh viên', type: 'Thể thao', desc: 'Thi đấu bóng đá giữa các khoa', points: 25, days: 1, color: 'orange' },
-                      { name: 'Cuộc thi lập trình', type: 'Học thuật', desc: 'Thi đấu lập trình giải thuật', points: 30, days: 7, color: 'blue' }
-                    ].map((activity, index) => (
-                      <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex justify-between items-start mb-3">
-                          <span className={`bg-${activity.color}-100 text-${activity.color}-800 text-xs px-2 py-1 rounded`}>
-                            {activity.type}
-                          </span>
-                          <span className="text-xs text-gray-500">Còn {activity.days} ngày</span>
+                    {ongoingActivities.map((activity) => {
+                      const start = new Date(activity.startDate);
+                      const end = new Date(activity.endDate);
+                      const now = new Date();
+                      const msLeft = Math.max(0, end - now);
+                      const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+                      return (
+                        <div key={activity.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex justify-between items-start mb-3">
+                            <span className={`bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded`}>
+                              {activity.type}
+                            </span>
+                            <span className="text-xs text-gray-500">Còn {daysLeft} ngày</span>
+                          </div>
+                          <h4 className="font-semibold mb-2">{activity.name}</h4>
+                          <p className="text-sm text-gray-600 mb-3">
+                            {start.toLocaleDateString('vi-VN')} - {end.toLocaleDateString('vi-VN')}
+                          </p>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-blue-600">+{activity.points || 0} điểm</span>
+                            <button
+                              className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                              onClick={() => handleActivityRegister(activity.id, activity.name)}
+                            >
+                              Đăng ký
+                            </button>
+                          </div>
                         </div>
-                        <h4 className="font-semibold mb-2">{activity.name}</h4>
-                        <p className="text-sm text-gray-600 mb-3">{activity.desc}</p>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-blue-600">+{activity.points} điểm</span>
-                          <button 
-                            className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                            onClick={() => handleActivityRegister(activity.name)}
-                          >
-                            Đăng ký
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -246,45 +272,41 @@ const Dashboard = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        <tr className="border-b">
-                          <td className="px-4 py-3">Hội thao khoa CNTT</td>
-                          <td className="px-4 py-3">15/12/2024</td>
-                          <td className="px-4 py-3">
-                            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Đã duyệt</span>
-                          </td>
-                          <td className="px-4 py-3">+15</td>
-                          <td className="px-4 py-3">
-                            <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleQRScan}>
-                              <i className="fas fa-qrcode mr-1"></i>QR
-                            </button>
-                          </td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="px-4 py-3">Đêm hội văn nghệ</td>
-                          <td className="px-4 py-3">20/12/2024</td>
-                          <td className="px-4 py-3">
-                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">Chờ duyệt</span>
-                          </td>
-                          <td className="px-4 py-3">+20</td>
-                          <td className="px-4 py-3">
-                            <button className="text-red-600 hover:text-red-800 text-sm">
-                              <i className="fas fa-times mr-1"></i>Hủy
-                            </button>
-                          </td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="px-4 py-3">Giải bóng đá</td>
-                          <td className="px-4 py-3">25/12/2024</td>
-                          <td className="px-4 py-3">
-                            <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">Từ chối</span>
-                          </td>
-                          <td className="px-4 py-3">0</td>
-                          <td className="px-4 py-3">
-                            <button className="text-blue-600 hover:text-blue-800 text-sm">
-                              <i className="fas fa-info-circle mr-1"></i>Chi tiết
-                            </button>
-                          </td>
-                        </tr>
+                        {myActivities.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-6 text-center text-gray-500">Chưa có hoạt động nào</td>
+                          </tr>
+                        )}
+                        {myActivities.map((item) => {
+                          const start = item.startDate ? new Date(item.startDate).toLocaleDateString('vi-VN') : 'N/A';
+                          const statusMap = {
+                            duyet: 'Đã duyệt',
+                            cho_duyet: 'Chờ duyệt',
+                            tu_choi: 'Từ chối',
+                            hoan_thanh: 'Hoàn thành'
+                          };
+                          const badgeClass = {
+                            duyet: 'bg-green-100 text-green-800',
+                            cho_duyet: 'bg-yellow-100 text-yellow-800',
+                            tu_choi: 'bg-red-100 text-red-800',
+                            hoan_thanh: 'bg-blue-100 text-blue-800'
+                          }[item.status] || 'bg-gray-100 text-gray-800';
+                          return (
+                            <tr key={item.id} className="border-b">
+                              <td className="px-4 py-3">{item.name}</td>
+                              <td className="px-4 py-3">{start}</td>
+                              <td className="px-4 py-3">
+                                <span className={`${badgeClass} px-2 py-1 rounded text-xs`}>{statusMap[item.status] || 'Không rõ'}</span>
+                              </td>
+                              <td className="px-4 py-3">{item.points ? `+${item.points}` : 0}</td>
+                              <td className="px-4 py-3">
+                                <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleQRScan}>
+                                  <i className="fas fa-qrcode mr-1"></i>QR
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -309,7 +331,7 @@ const Dashboard = () => {
           <div className="border-3 border-dashed border-green-400 rounded-lg p-6 text-center animate-pulse">
             <i className="fas fa-camera text-4xl text-green-600 mb-4"></i>
             <p className="text-sm text-gray-600 mb-4">Quét mã QR để điểm danh tham gia hoạt động</p>
-            <button 
+            <button
               className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
               onClick={handleQRScan}
             >

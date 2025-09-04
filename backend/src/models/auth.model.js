@@ -11,26 +11,33 @@ class AuthModel {
           nienkhoa: true
         }
       },
-      ThongTinLienHe: {
-        where: { loailh: 'email' },
-        select: { giatri: true }
-      }
+      ThongTinLienHe: true
     };
   }
 
   static toUserDTO(user) {
     if (!user) return null;
-    const email = user.ThongTinLienHe?.[0]?.giatri || null;
+    const contacts = Array.isArray(user.ThongTinLienHe) ? user.ThongTinLienHe.map(c => ({
+      id: c.id,
+      type: c.loailh,
+      value: c.giatri,
+      priority: c.uutien
+    })) : [];
+    const primaryEmail = contacts.find(c => c.type === 'email')?.value || null;
     return {
       id: user.id,
       name: user.hoten,
       maso: user.maso,
-      email,
+      email: primaryEmail,
+      contacts,
       role: user.vaiTro?.tenvt || 'student',
       lop: user.lop?.tenlop,
       khoa: user.lop?.khoa?.tenkhoa,
       nienkhoa: user.lop?.nienkhoa?.tennk,
       trangthai: user.trangthai,
+      ngaysinh: user.ngaysinh,
+      gt: user.gt,
+      cccd: user.cccd,
       createdAt: user.ngaytao,
       updatedAt: user.ngaycapnhat
     };
@@ -117,6 +124,18 @@ class AuthModel {
         giatri: email,
         uutien: 1
       }
+    });
+  }
+
+  // Contacts helpers for non-email
+  static deleteNonEmailContacts(userId) {
+    return prisma.thongTinLienHe.deleteMany({ where: { nguoidungid: userId, NOT: { loailh: 'email' } } });
+  }
+
+  static createNonEmailContacts(userId, contacts) {
+    if (!Array.isArray(contacts) || contacts.length === 0) return Promise.resolve();
+    return prisma.thongTinLienHe.createMany({
+      data: contacts.map(c => ({ nguoidungid: userId, loailh: c.type, giatri: c.value, uutien: c.priority || 1 }))
     });
   }
 

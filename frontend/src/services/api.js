@@ -42,6 +42,8 @@ export const authService = {
   register: (userData) => api.post('/auth/register', userData),
   logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/profile'),
+  updateSelf: (payload) => api.put('/auth/profile', payload),
+  updateContacts: (contacts) => api.put('/auth/contacts', { contacts }),
   forgotPassword: (identifier) => api.post('/auth/forgot', { identifier }),
   resetPassword: (payload) => api.post('/auth/reset', payload),
   changePassword: (payload) => api.post('/auth/change', payload),
@@ -58,6 +60,17 @@ export const userService = {
 // Kiểm tra sức khỏe
 export const healthService = {
   check: () => api.get('/health'),
+};
+
+// Dashboard services
+export const dashboardService = {
+  getSummary: () => api.get('/dashboard/summary'),
+  getOngoingActivities: () => api.get('/dashboard/activities/ongoing'),
+  getMyActivities: () => api.get('/dashboard/activities/me'),
+};
+
+export const activitiesService = {
+  register: (activityId) => api.post(`/activities/${activityId}/register`),
 };
 
 export default api;

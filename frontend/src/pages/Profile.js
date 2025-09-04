@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
-import { userService } from '../services/api';
+import { authService } from '../services/api';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -10,11 +10,25 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [contactInfo, setContactInfo] = useState([
-    { id: 1, type: 'email', value: '', priority: 1 },
-    { id: 2, type: 'phone', value: '', priority: 2 },
-  ]);
+  const [contactInfo, setContactInfo] = useState([]);
   const fileInputRef = useRef(null);
+
+  // Initialize contact list from user context
+  useEffect(() => {
+    const normalized = Array.isArray(user?.contacts)
+      ? user.contacts.map((c, idx) => ({ id: c.id || idx + 1, type: c.type || 'other', value: c.value || '', priority: c.priority || idx + 1 }))
+      : (user?.email ? [{ id: 'email-1', type: 'email', value: user.email, priority: 1 }] : []);
+    setContactInfo(normalized);
+  }, [user]);
+
+  // Determine if current user is a student/admin from either DTO style (role) or nested vaiTro
+  const isStudent = (user?.role === 'student') || (user?.vaiTro?.tenvt === 'Sinh viên');
+  const isAdmin = (user?.role === 'admin') || (
+    typeof user?.vaiTro?.tenvt === 'string' && (
+      user.vaiTro.tenvt.toLowerCase().includes('admin') ||
+      user.vaiTro.tenvt.toLowerCase().includes('quản trị')
+    )
+  );
   
   const {
     register,
@@ -34,34 +48,93 @@ const Profile = () => {
     },
   });
 
+  // Keep form values in sync whenever user changes in context
+  useEffect(() => {
+    reset({
+      maso: user?.maso || '',
+      hoten: user?.hoten || user?.name || '',
+      ngaysinh: user?.ngaysinh ? new Date(user.ngaysinh).toISOString().split('T')[0] : '',
+      gt: user?.gt || '',
+      cccd: user?.cccd || '',
+      lopid: user?.lopid || '',
+      trangthai: user?.trangthai || 'hot',
+    });
+  }, [user, reset]);
+
   const onSubmit = async (data) => {
+    if (isStudent) {
+      delete data.trangthai;
+    }
+
     setLoading(true);
     try {
-      const formData = new FormData();
-      Object.keys(data).forEach(key => {
-        if (data[key] !== null && data[key] !== undefined) {
-          formData.append(key, data[key]);
-        }
-      });
+      const profilePayload = {
+        ...(isAdmin ? { maso: data.maso } : {}),
+        name: data.hoten,
+        ngaysinh: data.ngaysinh || null,
+        gt: data.gt || '',
+        cccd: data.cccd || '',
+        ...(typeof data.trangthai !== 'undefined' && !isStudent ? { trangthai: data.trangthai } : {}),
+      };
 
-      // Add contact information
-      formData.append('contactInfo', JSON.stringify(contactInfo));
+      const contactsPayload = contactInfo
+        .filter(c => c.type !== 'email' && c.value)
+        .map(c => ({ type: c.type, value: c.value, priority: c.priority }));
 
-      // Add avatar if selected
-      if (fileInputRef.current?.files[0]) {
-        formData.append('avatar', fileInputRef.current.files[0]);
+      const [profileRes, contactsRes] = await Promise.allSettled([
+        authService.updateSelf(profilePayload),
+        authService.updateContacts(contactsPayload),
+      ]);
+
+      // Merge successful results
+      let merged = { ...user };
+      if (profileRes.status === 'fulfilled') {
+        const u = profileRes.value.data?.data || profileRes.value.data;
+        merged = { ...merged, ...u };
+      }
+      if (contactsRes.status === 'fulfilled') {
+        const u = contactsRes.value.data?.data || contactsRes.value.data;
+        merged = { ...merged, ...u };
       }
 
-      const response = await userService.updateUser(user.id, formData);
-      updateProfile(response.data);
-      toast.success('Cập nhật thông tin thành công!');
+      updateProfile(merged);
+
+      // Reset form with latest values
+      reset({
+        maso: merged?.maso || '',
+        hoten: merged?.hoten || merged?.name || '',
+        ngaysinh: merged?.ngaysinh ? new Date(merged.ngaysinh).toISOString().split('T')[0] : '',
+        gt: merged?.gt || '',
+        cccd: merged?.cccd || '',
+        lopid: merged?.lopid || '',
+        trangthai: merged?.trangthai || 'hot',
+      });
+
+      if (Array.isArray(merged?.contacts)) {
+        const normalized = merged.contacts.map((c, idx) => ({ id: c.id || idx + 1, type: c.type || 'other', value: c.value || '', priority: c.priority || idx + 1 }));
+        setContactInfo(normalized);
+      }
+
+      // Toaster messages
+      if (profileRes.status === 'fulfilled' && contactsRes.status === 'fulfilled') {
+        toast.success('Cập nhật thông tin và liên hệ thành công!');
+      } else if (profileRes.status === 'fulfilled') {
+        toast.success('Cập nhật thông tin cá nhân thành công');
+        toast.error('Cập nhật liên hệ thất bại');
+      } else if (contactsRes.status === 'fulfilled') {
+        toast.success('Cập nhật thông tin liên hệ thành công');
+        toast.error('Cập nhật thông tin cá nhân thất bại');
+      } else {
+        toast.error('Cập nhật thất bại');
+      }
+
       setIsEditing(false);
     } catch (error) {
-      if (error.response?.data?.errors) {
-        const errors = error.response.data.errors;
-        errors.forEach(err => {
-          toast.error(`${err.field}: ${err.message}`);
-        });
+      if (error.response?.status === 403) {
+        toast.error(error.response?.data?.message || 'Bạn không có quyền thực hiện');
+      } else if (error.response?.data?.errors) {
+        const errs = error.response.data.errors;
+        errs.forEach(err => toast.error(`${err.field}: ${err.message}`));
       } else {
         const message = error.response?.data?.message || 'Cập nhật thất bại!';
         toast.error(message);
@@ -102,11 +175,15 @@ const Profile = () => {
   };
 
   const addContactInfo = () => {
-    const newId = Math.max(...contactInfo.map(c => c.id)) + 1;
-    setContactInfo([...contactInfo, { id: newId, type: 'email', value: '', priority: contactInfo.length + 1 }]);
+    if (loading) return;
+    const nextId = Math.max(0, ...contactInfo.map(c => (typeof c.id === 'number' ? c.id : 0))) + 1;
+    setContactInfo([...contactInfo, { id: nextId, type: 'other', value: '', priority: (contactInfo.length + 1) }]);
   };
 
   const removeContactInfo = (id) => {
+    if (loading) return;
+    const contact = contactInfo.find(c => c.id === id);
+    if (contact?.type === 'email') return; // protect email row
     setContactInfo(contactInfo.filter(c => c.id !== id));
   };
 
@@ -260,11 +337,11 @@ const Profile = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <i className="fas fa-id-card text-gray-400 mr-2"></i>
-                    Mã số sinh viên/nhân viên *
+                    Mã số sinh viên
                   </label>
                   <input
                     type="text"
-                    disabled={!isEditing}
+                    disabled={!isEditing || !isAdmin}
                     {...register('maso', {
                       required: 'Mã số là bắt buộc',
                       pattern: {
@@ -273,7 +350,7 @@ const Profile = () => {
                       },
                     })}
                     className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                      !isEditing ? 'bg-gray-50 text-gray-500' : ''
+                      (!isEditing || !isAdmin) ? 'bg-gray-50 text-gray-500' : ''
                     }`}
                     placeholder="Nhập mã số sinh viên/nhân viên"
                   />
@@ -384,10 +461,10 @@ const Profile = () => {
                     Trạng thái tài khoản
                   </label>
                   <select
-                    disabled={!isEditing}
+                    disabled={!isEditing || isStudent}
                     {...register('trangthai')}
                     className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                      !isEditing ? 'bg-gray-50 text-gray-500' : ''
+                      (!isEditing || isStudent) ? 'bg-gray-50 text-gray-500' : ''
                     }`}
                   >
                     <option value="hot">Hoạt động</option>
@@ -414,28 +491,24 @@ const Profile = () => {
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                   >
                     <i className="fas fa-plus mr-2"></i>
-                    Thêm liên hệ
+                    Thêm liên hệ khác
                   </button>
                 )}
               </div>
 
               <div className="space-y-4">
-                {contactInfo.map((contact, index) => (
-                  <div key={contact.id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                {contactInfo.map((contact) => (
+                  <div key={contact.id} className={`flex items-center space-x-4 p-4 border rounded-lg ${contact.type === 'email' ? 'bg-gray-50' : ''}`}>
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Loại liên hệ
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Loại liên hệ</label>
                         <select
-                          disabled={!isEditing}
+                          disabled={!isEditing || contact.type === 'email'}
                           value={contact.type}
                           onChange={(e) => updateContactInfo(contact.id, 'type', e.target.value)}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                            !isEditing ? 'bg-gray-50 text-gray-500' : ''
-                          }`}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${(!isEditing || contact.type === 'email') ? 'bg-gray-50 text-gray-500' : ''}`}
                         >
-                          <option value="email">Email</option>
+                          {contact.type === 'email' && (<option value="email">Email</option>)}
                           <option value="phone">Điện thoại</option>
                           <option value="address">Địa chỉ</option>
                           <option value="facebook">Facebook</option>
@@ -444,31 +517,23 @@ const Profile = () => {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Thông tin liên hệ
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Thông tin liên hệ</label>
                         <input
                           type="text"
-                          disabled={!isEditing}
+                          disabled={!isEditing || contact.type === 'email'}
                           value={contact.value}
                           onChange={(e) => updateContactInfo(contact.id, 'value', e.target.value)}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                            !isEditing ? 'bg-gray-50 text-gray-500' : ''
-                          }`}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${(!isEditing || contact.type === 'email') ? 'bg-gray-50 text-gray-500' : ''}`}
                           placeholder="Nhập thông tin liên hệ"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Độ ưu tiên
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Độ ưu tiên</label>
                         <select
-                          disabled={!isEditing}
+                          disabled={!isEditing || contact.type === 'email'}
                           value={contact.priority}
                           onChange={(e) => updateContactInfo(contact.id, 'priority', parseInt(e.target.value))}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                            !isEditing ? 'bg-gray-50 text-gray-500' : ''
-                          }`}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${(!isEditing || contact.type === 'email') ? 'bg-gray-50 text-gray-500' : ''}`}
                         >
                           <option value={1}>Cao</option>
                           <option value={2}>Trung bình</option>
@@ -476,7 +541,7 @@ const Profile = () => {
                         </select>
                       </div>
                     </div>
-                    {isEditing && contactInfo.length > 1 && (
+                    {isEditing && contact.type !== 'email' && (
                       <button
                         type="button"
                         onClick={() => removeContactInfo(contact.id)}

@@ -31,6 +31,9 @@ class UserModel {
       khoa: user.lop?.khoa?.tenkhoa,
       nienkhoa: user.lop?.nienkhoa?.tennk,
       trangthai: user.trangthai,
+      ngaysinh: user.ngaysinh,
+      gt: user.gt,
+      cccd: user.cccd,
       createdAt: user.ngaytao,
       updatedAt: user.ngaycapnhat
     };
@@ -52,10 +55,18 @@ class UserModel {
     return this.toDTO(user);
   }
 
-  static async updateBasic(id, { name }) {
+  static async updateBasic(id, { maso, name, trangthai, ngaysinh, gt, cccd }) {
+    const data = { ngaycapnhat: new Date() };
+    if (typeof maso !== 'undefined') data.maso = maso;
+    if (typeof name !== 'undefined') data.hoten = name;
+    if (typeof trangthai !== 'undefined') data.trangthai = trangthai;
+    if (typeof ngaysinh !== 'undefined') data.ngaysinh = ngaysinh ? new Date(ngaysinh) : null;
+    if (typeof gt !== 'undefined') data.gt = gt ? gt : null;
+    if (typeof cccd !== 'undefined') data.cccd = cccd;
+
     const updated = await prisma.nguoiDung.update({
       where: { id },
-      data: { hoten: name, ngaycapnhat: new Date() },
+      data,
       include: this.includeBasic()
     });
     return this.toDTO(updated);

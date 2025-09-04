@@ -33,17 +33,22 @@ exports.getById = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email } = req.body;
+    const { name, email, trangthai } = req.body;
+
+    // Chặn sinh viên cập nhật trạng thái tài khoản
+    if (req.user?.role === 'student' && typeof trangthai !== 'undefined') {
+      return sendResponse(res, ApiResponse.forbidden('Sinh viên không được phép cập nhật trạng thái tài khoản'));
+    }
 
     // Cập nhật thông tin cơ bản của người dùng
-    const updatedUser = await UserModel.updateBasic(id, { name });
+    const updatedUser = await UserModel.updateBasic(id, { name, trangthai });
     if (!updatedUser) {
       return sendResponse(res, ApiResponse.notFound('Không tìm thấy người dùng'));
     }
 
     // Cập nhật email nếu có - sẽ chuyển sang model sau nếu cần thiết
     if (email) {
-      // Có thể gọi service EmailContact.updateForUser(id, email) tại đây
+      // TODO: implement update email contact in a dedicated service
     }
 
     sendResponse(res, ApiResponse.success({ ...updatedUser, email }, 'Cập nhật người dùng thành công'));
@@ -57,10 +62,7 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
-    const ok = await UserModel.deleteById(id);
-    if (!ok) {
-      return sendResponse(res, ApiResponse.notFound('Không tìm thấy người dùng'));
-    }
+    await UserModel.deleteById(id);
     sendResponse(res, ApiResponse.success(null, 'Xóa người dùng thành công'));
   } catch (error) {
     logError('Delete user error', error);

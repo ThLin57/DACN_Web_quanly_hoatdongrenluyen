@@ -7,7 +7,9 @@ const { validate, loginSchema, registerSchema, forgotPasswordSchema, resetPasswo
 const { ApiResponse, sendResponse } = require('../utils/response');
 const { logInfo, logError } = require('../utils/logger');
 const config = require('../config/app');
+const { prisma } = require('../config/database');
 const AuthModel = require('../models/auth.model');
+const UserModel = require('../models/user.model');
 const router = Router();
 
 // Lưu trữ token reset trong bộ nhớ (demo). Trong sản xuất nên dùng Redis/DB
@@ -199,10 +201,61 @@ router.post('/change', auth, validate(changePasswordSchema), async (req, res) =>
     }
     const hashed = await AuthModel.hashPassword(newPassword);
     await AuthModel.updatePasswordById(user.id, hashed);
-    logInfo('User changed password', { userId: user.id });
     sendResponse(res, ApiResponse.success(null, 'Đổi mật khẩu thành công'));
   } catch (error) {
     logError('Change password error', error);
+    sendResponse(res, ApiResponse.error('Lỗi server, vui lòng thử lại sau'));
+  }
+});
+
+// Cập nhật thông tin cá nhân (self)
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const { maso, name, trangthai, ngaysinh, gt, cccd } = req.body;
+
+    // Không cho phép sinh viên cập nhật trạng thái tài khoản
+    if (req.user?.role === 'student' && typeof trangthai !== 'undefined') {
+      return sendResponse(res, ApiResponse.forbidden('Sinh viên không được phép cập nhật trạng thái tài khoản'));
+    }
+
+    // Chỉ admin mới được phép cập nhật mã số (maso)
+    const isAdmin = req.user?.role === 'admin';
+    const payload = { name, trangthai, ngaysinh, gt, cccd };
+    if (isAdmin && typeof maso !== 'undefined') payload.maso = maso;
+
+    const updated = await UserModel.updateBasic(req.user.sub, payload);
+    sendResponse(res, ApiResponse.success(updated, 'Cập nhật thông tin cá nhân thành công'));
+  } catch (error) {
+    logError('Update self profile error', error, { userId: req.user?.sub });
+    sendResponse(res, ApiResponse.error('Lỗi server, vui lòng thử lại sau'));
+  }
+});
+
+// Cập nhật danh sách liên hệ (trừ email)
+router.put('/contacts', auth, async (req, res) => {
+  try {
+    const { contacts } = req.body; // [{ type, value, priority }]
+    if (!Array.isArray(contacts)) {
+      return sendResponse(res, ApiResponse.validationError([{ field: 'contacts', message: 'Danh sách liên hệ không hợp lệ' }]));
+    }
+
+    // Chỉ nhận các liên hệ không phải email và giá trị không rỗng
+    const sanitized = contacts
+      .filter(c => c && c.type && c.type !== 'email' && c.value)
+      .map((c, idx) => ({ type: String(c.type), value: String(c.value), priority: Number(c.priority || idx + 1) }));
+
+    // Thao tác: xóa toàn bộ liên hệ non-email cũ và tạo mới (đơn giản, rõ ràng)
+    await AuthModel.deleteNonEmailContacts(req.user.sub); // Assuming AuthModel has this method
+    if (sanitized.length > 0) {
+      await AuthModel.createNonEmailContacts(req.user.sub, sanitized); // Assuming AuthModel has this method
+    }
+
+    // Trả lại profile mới với contacts đã cập nhật
+    const user = await AuthModel.findUserByMaso(req.user.maso);
+    const dto = AuthModel.toUserDTO(user);
+    sendResponse(res, ApiResponse.success(dto, 'Cập nhật thông tin liên hệ thành công'));
+  } catch (error) {
+    logError('Update contacts error', error, { userId: req.user?.sub });
     sendResponse(res, ApiResponse.error('Lỗi server, vui lòng thử lại sau'));
   }
 });
