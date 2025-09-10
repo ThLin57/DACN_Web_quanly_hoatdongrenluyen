@@ -5,61 +5,41 @@ class AuthModel {
   static includeForUser() {
     return {
       vaiTro: true,
-      lop: {
-        include: {
-          khoa: true,
-          nienkhoa: true
-        }
-      },
-      ThongTinLienHe: true
+      sinhVien: { include: { lop: true } }
     };
   }
 
   static toUserDTO(user) {
     if (!user) return null;
-    const contacts = Array.isArray(user.ThongTinLienHe) ? user.ThongTinLienHe.map(c => ({
-      id: c.id,
-      type: c.loailh,
-      value: c.giatri,
-      priority: c.uutien
-    })) : [];
-    const primaryEmail = contacts.find(c => c.type === 'email')?.value || null;
     return {
       id: user.id,
-      name: user.hoten,
-      maso: user.maso,
-      email: primaryEmail,
-      contacts,
-      role: user.vaiTro?.tenvt || 'student',
-      lop: user.lop?.tenlop,
-      khoa: user.lop?.khoa?.tenkhoa,
-      nienkhoa: user.lop?.nienkhoa?.tennk,
-      trangthai: user.trangthai,
-      ngaysinh: user.ngaysinh,
-      gt: user.gt,
-      cccd: user.cccd,
-      createdAt: user.ngaytao,
-      updatedAt: user.ngaycapnhat
+      name: user.ho_ten,
+      maso: user.ten_dn,
+      email: user.email,
+      role: user.vaiTro?.ten_vt || 'student',
+      lop: user.sinhVien?.lop?.ten_lop || null,
+      khoa: user.sinhVien?.lop?.khoa || null,
+      nienkhoa: user.sinhVien?.lop?.nien_khoa || null,
+      trangthai: user.trang_thai,
+      ngaysinh: user.sinhVien?.ngay_sinh || null,
+      gt: user.sinhVien?.gt || null,
+      createdAt: user.ngay_tao,
+      updatedAt: user.ngay_cap_nhat
     };
   }
 
-  // Tìm người dùng theo mã số
+  // Tìm người dùng theo tên đăng nhập (trước đây dùng 'maso')
   static findUserByMaso(maso) {
     return prisma.nguoiDung.findUnique({
-      where: { maso },
+      where: { ten_dn: maso },
       include: this.includeForUser()
     });
   }
 
-  // Tìm người dùng theo email (từ bảng ThongTinLienHe)
+  // Tìm người dùng theo email
   static async findUserByEmail(email) {
-    const info = await prisma.thongTinLienHe.findFirst({
-      where: { giatri: email, loailh: 'email' },
-      select: { nguoidungid: true }
-    });
-    if (!info) return null;
     return prisma.nguoiDung.findUnique({
-      where: { id: info.nguoidungid },
+      where: { email },
       include: this.includeForUser()
     });
   }
@@ -78,9 +58,8 @@ class AuthModel {
     await prisma.nguoiDung.update({
       where: { id: userId },
       data: {
-        lancuoidn: new Date(),
-        solandn: { increment: 1 },
-        diachiipcuoi: ip
+        lan_cuoi_dn: new Date(),
+        ngay_cap_nhat: new Date(),
       }
     });
   }
@@ -95,55 +74,70 @@ class AuthModel {
     return bcrypt.hash(plain, 10);
   }
 
-  // Tìm lớp học mặc định
-  static findDefaultClass() {
-    return prisma.lop.findFirst({ where: { tenlop: 'Lớp mặc định' } });
-  }
-
-  // Tạo người dùng sinh viên mặc định
-  static async createStudent({ name, maso, hashedPassword, lopId }) {
-    return prisma.nguoiDung.create({
+  // Tìm (hoặc tạo) lớp học mặc định để gán khi đăng ký
+  static async findDefaultClass() {
+    const existing = await prisma.lop.findFirst({ where: { ten_lop: 'Lớp mặc định' } });
+    if (existing) return existing;
+    // Tìm người có thể làm chủ nhiệm: ưu tiên 'gv001' -> 'admin' -> người đầu tiên
+    const gv = await prisma.nguoiDung.findUnique({ where: { ten_dn: 'gv001' }, select: { id: true } }).catch(() => null);
+    const ad = gv ? null : await prisma.nguoiDung.findUnique({ where: { ten_dn: 'admin' }, select: { id: true } }).catch(() => null);
+    const anyUser = gv || ad || await prisma.nguoiDung.findFirst({ select: { id: true } });
+    if (!anyUser) return null;
+    return prisma.lop.create({
       data: {
-        maso,
-        hoten: name,
-        matkhau: hashedPassword,
-        trangthai: 'hot',
-        lopid: lopId,
-        vaitroid: null
-      },
-      include: this.includeForUser()
-    });
-  }
-
-  // Tạo thông tin liên hệ email cho người dùng
-  static createEmailContact(userId, email) {
-    return prisma.thongTinLienHe.create({
-      data: {
-        nguoidungid: userId,
-        loailh: 'email',
-        giatri: email,
-        uutien: 1
+        ten_lop: 'Lớp mặc định',
+        khoa: 'Công nghệ thông tin',
+        nien_khoa: '2021-2025',
+        nam_nhap_hoc: new Date(),
+        chu_nhiem: anyUser.id,
       }
     });
   }
 
+  // Tạo người dùng sinh viên mặc định
+  static async createStudent({ name, maso, email, hashedPassword, lopId }) {
+    const user = await prisma.nguoiDung.create({
+      data: {
+        ten_dn: maso,
+        ho_ten: name,
+        mat_khau: hashedPassword,
+        email,
+        trang_thai: 'hoat_dong',
+      },
+      include: this.includeForUser()
+    });
+    await prisma.sinhVien.create({
+      data: {
+        nguoi_dung_id: user.id,
+        mssv: maso,
+        ngay_sinh: new Date('2000-01-01'),
+        lop_id: lopId,
+        email
+      }
+    });
+    return prisma.nguoiDung.findUnique({ where: { id: user.id }, include: this.includeForUser() });
+  }
+
+  // Không còn bảng thông tin liên hệ riêng; cập nhật email trực tiếp trên người dùng
+  static async createEmailContact(userId, email) {
+    await prisma.nguoiDung.update({ where: { id: userId }, data: { email } });
+    return true;
+  }
+
   // Contacts helpers for non-email
   static deleteNonEmailContacts(userId) {
-    return prisma.thongTinLienHe.deleteMany({ where: { nguoidungid: userId, NOT: { loailh: 'email' } } });
+    return Promise.resolve();
   }
 
   static createNonEmailContacts(userId, contacts) {
-    if (!Array.isArray(contacts) || contacts.length === 0) return Promise.resolve();
-    return prisma.thongTinLienHe.createMany({
-      data: contacts.map(c => ({ nguoidungid: userId, loailh: c.type, giatri: c.value, uutien: c.priority || 1 }))
-    });
+    return Promise.resolve();
   }
 
   // Cập nhật mật khẩu theo ID người dùng
   static async updatePasswordById(userId, hashedPassword) {
     await prisma.nguoiDung.update({
       where: { id: userId },
-      data: { matkhau: hashedPassword, ngaycapnhat: new Date() }
+      data: { mat_khau: hashedPassword, ngay_cap_nhat: new Date() }
     });
     return true;
   }

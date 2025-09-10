@@ -1,21 +1,10 @@
 const { prisma } = require('../config/database');
 
 class UserModel {
-  static selectEmailFromContacts = {
-    where: { loailh: 'email' },
-    select: { giatri: true }
-  };
-
   static includeBasic() {
     return {
       vaiTro: true,
-      lop: {
-        include: {
-          khoa: true,
-          nienkhoa: true
-        }
-      },
-      ThongTinLienHe: this.selectEmailFromContacts
+      sinhVien: { include: { lop: true } }
     };
   }
 
@@ -23,26 +12,25 @@ class UserModel {
     if (!user) return null;
     return {
       id: user.id,
-      name: user.hoten,
-      email: user.ThongTinLienHe?.[0]?.giatri || user.maso,
-      role: user.vaiTro?.tenvt || 'student',
-      maso: user.maso,
-      lop: user.lop?.tenlop,
-      khoa: user.lop?.khoa?.tenkhoa,
-      nienkhoa: user.lop?.nienkhoa?.tennk,
-      trangthai: user.trangthai,
-      ngaysinh: user.ngaysinh,
-      gt: user.gt,
-      cccd: user.cccd,
-      createdAt: user.ngaytao,
-      updatedAt: user.ngaycapnhat
+      name: user.ho_ten,
+      email: user.email,
+      role: user.vaiTro?.ten_vt || 'student',
+      maso: user.ten_dn,
+      lop: user.sinhVien?.lop?.ten_lop || null,
+      khoa: user.sinhVien?.lop?.khoa || null,
+      nienkhoa: user.sinhVien?.lop?.nien_khoa || null,
+      trangthai: user.trang_thai,
+      ngaysinh: user.sinhVien?.ngay_sinh || null,
+      gt: user.sinhVien?.gt || null,
+      createdAt: user.ngay_tao,
+      updatedAt: user.ngay_cap_nhat
     };
   }
 
   static async findAll() {
     const users = await prisma.nguoiDung.findMany({
       include: this.includeBasic(),
-      orderBy: { ngaytao: 'desc' }
+      orderBy: { ngay_tao: 'desc' }
     });
     return users.map(this.toDTO);
   }
@@ -55,21 +43,26 @@ class UserModel {
     return this.toDTO(user);
   }
 
-  static async updateBasic(id, { maso, name, trangthai, ngaysinh, gt, cccd }) {
-    const data = { ngaycapnhat: new Date() };
-    if (typeof maso !== 'undefined') data.maso = maso;
-    if (typeof name !== 'undefined') data.hoten = name;
-    if (typeof trangthai !== 'undefined') data.trangthai = trangthai;
-    if (typeof ngaysinh !== 'undefined') data.ngaysinh = ngaysinh ? new Date(ngaysinh) : null;
-    if (typeof gt !== 'undefined') data.gt = gt ? gt : null;
-    if (typeof cccd !== 'undefined') data.cccd = cccd;
+  static async updateBasic(id, { maso, name, trangthai, ngaysinh, gt }) {
+    const dataUser = { ngay_cap_nhat: new Date() };
+    if (typeof maso !== 'undefined') dataUser.ten_dn = maso;
+    if (typeof name !== 'undefined') dataUser.ho_ten = name;
+    if (typeof trangthai !== 'undefined') dataUser.trang_thai = trangthai;
 
-    const updated = await prisma.nguoiDung.update({
-      where: { id },
-      data,
-      include: this.includeBasic()
-    });
-    return this.toDTO(updated);
+    const ops = [];
+    ops.push(prisma.nguoiDung.update({ where: { id }, data: dataUser }));
+
+    const updateSV = (typeof ngaysinh !== 'undefined') || (typeof gt !== 'undefined');
+    if (updateSV) {
+      const dataSv = {};
+      if (typeof ngaysinh !== 'undefined') dataSv.ngay_sinh = ngaysinh ? new Date(ngaysinh) : null;
+      if (typeof gt !== 'undefined') dataSv.gt = gt || null;
+      ops.push(prisma.sinhVien.updateMany({ where: { nguoi_dung_id: id }, data: dataSv }));
+    }
+
+    await prisma.$transaction(ops);
+    const user = await prisma.nguoiDung.findUnique({ where: { id }, include: this.includeBasic() });
+    return this.toDTO(user);
   }
 
   static async deleteById(id) {

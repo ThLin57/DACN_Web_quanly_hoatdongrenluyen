@@ -41,20 +41,20 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       return sendResponse(res, ApiResponse.unauthorized('Mã số hoặc mật khẩu không đúng'));
     }
 
-    const isPasswordValid = await AuthModel.comparePassword(password, user.matkhau);
+    const isPasswordValid = await AuthModel.comparePassword(password, user.mat_khau);
     if (!isPasswordValid) {
       return sendResponse(res, ApiResponse.unauthorized('Mã số hoặc mật khẩu không đúng'));
     }
 
     // Kiểm tra trạng thái tài khoản
-    if (user.trangthai !== 'hot') {
+    if (user.trang_thai !== 'hoat_dong') {
       return sendResponse(res, ApiResponse.unauthorized('Tài khoản đã bị khóa'));
     }
 
     const payload = {
       sub: user.id,
-      maso: user.maso,
-      role: user.vaiTro?.tenvt || 'student'
+      maso: user.ten_dn,
+      role: user.vaiTro?.ten_vt || 'student'
     };
 
     const token = jwt.sign(payload, config.jwtSecret, { 
@@ -67,7 +67,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     // Ghi log đăng nhập thành công
     logInfo('User logged in successfully', { 
       userId: user.id, 
-      maso: user.maso, 
+      maso: user.ten_dn, 
       role: payload.role,
       ip: req.ip 
     });
@@ -104,16 +104,14 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     const newUser = await AuthModel.createStudent({
       name,
       maso,
+      email,
       hashedPassword,
       lopId: lopMacDinh.id
     });
 
-    // Tạo thông tin liên hệ qua email
-    await AuthModel.createEmailContact(newUser.id, email);
-
     const payload = {
       sub: newUser.id,
-      maso: newUser.maso,
+      maso: newUser.ten_dn,
       role: 'student'
     };
 
@@ -124,7 +122,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     // Ghi log đăng ký thành công
     logInfo('User registered successfully', { 
       userId: newUser.id, 
-      maso: newUser.maso,
+      maso: newUser.ten_dn,
       email: email,
       ip: req.ip 
     });

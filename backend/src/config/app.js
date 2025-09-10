@@ -21,6 +21,7 @@ module.exports = {
   // Rate limiting
   rateLimit: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
+    // Nới giới hạn trong môi trường development để tránh 429 khi reload nhiều
+    max: (process.env.NODE_ENV || 'development') === 'development' ? 1000 : 100,
   }
 };

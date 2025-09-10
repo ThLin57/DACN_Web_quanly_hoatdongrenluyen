@@ -7,20 +7,20 @@ const { logError, logInfo } = require('../utils/logger');
 
 const router = Router();
 
-// Admin: cập nhật trạng thái hoạt động thành 'hoan_thanh' nếu đã kết thúc
+// Admin: cập nhật trạng thái hoạt động thành 'ket_thuc' nếu đã kết thúc
 router.put('/finalize-past', auth, requireAdmin, async (req, res) => {
   try {
     const now = new Date();
 
-    // Chỉ cập nhật những hoạt động đã được duyệt và đã quá hạn nhưng chưa hoan_thanh
+    // Chỉ cập nhật những hoạt động đã được duyệt và đã quá hạn nhưng chưa kết thúc
     const result = await prisma.hoatDong.updateMany({
       where: {
-        ngaykt: { lt: now },
-        trangthaihd: { in: ['duyet'] },
+        ngay_kt: { lt: now },
+        trang_thai: { in: ['da_duyet'] },
       },
       data: {
-        trangthaihd: 'hoan_thanh',
-        ngayduyet: now,
+        trang_thai: 'ket_thuc',
+        ngay_cap_nhat: now,
       },
     });
 
@@ -45,23 +45,23 @@ router.post('/:id/register', auth, async (req, res) => {
     }
 
     const now = new Date();
-    if (activity.trangthaihd !== 'duyet') {
+    if (activity.trang_thai !== 'da_duyet') {
       return sendResponse(res, ApiResponse.forbidden('Hoạt động chưa mở hoặc không hợp lệ'));
     }
-    if (activity.handangky && now > activity.handangky) {
+    if (activity.han_dk && now > activity.han_dk) {
       return sendResponse(res, ApiResponse.forbidden('Đã quá hạn đăng ký'));
     }
 
     // Kiểm tra trùng đăng ký
-    const exists = await prisma.dangKyHoatDong.findFirst({ where: { svid: userId, hdid: activityId } });
+    const exists = await prisma.dangKyHoatDong.findFirst({ where: { sv_id: userId, hd_id: activityId } });
     if (exists) {
-      return sendResponse(res, ApiResponse.validationError([{ field: 'activity', message: 'Bạn đã đăng ký hoạt động này' }]));
+      return sendResponse(res, ApiResponse.validationError([{ field: 'Thông báo ', message: 'Bạn đã đăng ký hoạt động này' }]));
     }
 
     // Kiểm tra số lượng tối đa nếu được cấu hình
-    if (activity.sltoida && activity.sltoida > 0) {
-      const currentCount = await prisma.dangKyHoatDong.count({ where: { hdid: activityId } });
-      if (currentCount >= activity.sltoida) {
+    if (activity.sl_toi_da && activity.sl_toi_da > 0) {
+      const currentCount = await prisma.dangKyHoatDong.count({ where: { hd_id: activityId } });
+      if (currentCount >= activity.sl_toi_da) {
         return sendResponse(res, ApiResponse.forbidden('Hoạt động đã đủ số lượng đăng ký'));
       }
     }
@@ -69,9 +69,9 @@ router.post('/:id/register', auth, async (req, res) => {
     // Tạo đăng ký
     const created = await prisma.dangKyHoatDong.create({
       data: {
-        svid: userId,
-        hdid: activityId,
-        ngaydangky: new Date(),
+        sv_id: userId,
+        hd_id: activityId,
+        ngay_dang_ky: new Date(),
       }
     });
 
@@ -80,6 +80,64 @@ router.post('/:id/register', auth, async (req, res) => {
   } catch (error) {
     logError('Register activity error', error, { userId: req.user?.sub, activityId: req.params?.id });
     sendResponse(res, ApiResponse.error('Không thể đăng ký hoạt động'));
+  }
+});
+
+// Chi tiết hoạt động
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const hd = await prisma.hoatDong.findUnique({
+      where: { id },
+      include: {
+        loaiHoatDong: true,
+        nguoiTao: { select: { id: true, ho_ten: true } },
+        dangKyHoatDongs: { select: { id: true, nguoi_duyet_id: true, ly_do_tu_choi: true, sv_id: true } },
+      }
+    });
+    if (!hd) return sendResponse(res, ApiResponse.notFound('Không tìm thấy hoạt động'));
+
+    const tong_dangky = hd.dangKyHoatDongs.length;
+    const da_duyet = hd.dangKyHoatDongs.filter(dk => dk.nguoi_duyet_id && !dk.ly_do_tu_choi).length;
+    const currentReg = hd.dangKyHoatDongs.find(dk => dk.sv_id === req.user.sub) || null;
+    let registrationStatus = 'chua_dang_ky';
+    if (currentReg) {
+      if (currentReg.ly_do_tu_choi) registrationStatus = 'tu_choi';
+      else if (currentReg.nguoi_duyet_id) registrationStatus = 'da_duyet';
+      else registrationStatus = 'cho_duyet';
+    }
+    const now = new Date();
+    const deadline = hd.han_dk || hd.ngay_kt;
+    const reachedCapacity = (hd.sl_toi_da && hd.sl_toi_da > 0) ? tong_dangky >= hd.sl_toi_da : false;
+    const isOpen = hd.trang_thai === 'da_duyet' && deadline ? now <= deadline : hd.trang_thai === 'da_duyet';
+    const canRegister = isOpen && !reachedCapacity && registrationStatus === 'chua_dang_ky';
+
+    const detail = {
+      id: hd.id,
+      name: hd.ten_hd,
+      description: hd.mo_ta,
+      startDate: hd.ngay_bd,
+      endDate: hd.ngay_kt,
+      deadline: hd.han_dk,
+      location: hd.dia_diem,
+      capacity: hd.sl_toi_da || 0,
+      points: Number(hd.diem_rl || 0),
+      type: hd.loaiHoatDong?.ten_loai_hd || null,
+      typeColor: hd.loaiHoatDong?.mau_sac || null,
+      organizer: hd.don_vi_to_chuc || null,
+      requirement: hd.yeu_cau_tham_gia || null,
+      creatorName: hd.nguoiTao?.ho_ten || null,
+      tong_dangky,
+      da_duyet,
+      qr: hd.qr || null,
+      registrationStatus,
+      canRegister,
+    };
+
+    sendResponse(res, ApiResponse.success(detail, 'Chi tiết hoạt động'));
+  } catch (error) {
+    logError('Get activity detail error', error, { id: req.params?.id });
+    sendResponse(res, ApiResponse.error('Không thể lấy chi tiết hoạt động'));
   }
 });
 

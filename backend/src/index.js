@@ -23,7 +23,12 @@ app.use(helmet());
 app.use(compression());
 
 // Rate limiting
-const limiter = rateLimit(config.rateLimit);
+const limiter = rateLimit({
+  ...config.rateLimit,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${req.ip}:${req.user?.sub || 'anon'}`,
+});
 app.use('/api/', limiter);
 
 // Body parsing middleware
