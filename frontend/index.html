@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QL Hoạt động Rèn luyện</title>
+  <link rel="icon" href="data:," />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js"></script>
+  <style>
+    html, body, #root { height: 100%; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div id="root"></div>
+
+  <script>
+    const { useState } = React;
+    const { createRoot } = ReactDOM;
+    const { BrowserRouter, Routes, Route, Link, useNavigate } = ReactRouterDOM;
+
+    function Layout({ children }) {
+      return (
+        React.createElement('div', { className: 'min-h-screen flex' },
+          React.createElement('aside', { className: 'w-64 bg-white border-r' },
+            React.createElement('div', { className: 'px-4 py-4 font-bold text-lg' }, 'Hệ thống QL HDL'),
+            React.createElement('nav', { className: 'px-2 space-y-1' },
+              React.createElement(Link, { className: 'block px-3 py-2 rounded hover:bg-gray-100', to: '/duyet-dang-ky' }, 'Phê duyệt đăng ký'),
+              React.createElement(Link, { className: 'block px-3 py-2 rounded hover:bg-gray-100', to: '/bao-cao' }, 'Báo cáo - Thống kê'),
+              React.createElement(Link, { className: 'block px-3 py-2 rounded hover:bg-gray-100', to: '/duyet-hoat-dong' }, 'Phê duyệt hoạt động'),
+              React.createElement(Link, { className: 'block px-3 py-2 rounded hover:bg-gray-100', to: '/admin/dashboard' }, 'Admin Dashboard'),
+              React.createElement(Link, { className: 'block px-3 py-2 rounded hover:bg-gray-100', to: '/admin/accounts' }, 'Quản lý tài khoản'),
+              React.createElement(Link, { className: 'block px-3 py-2 rounded hover:bg-gray-100', to: '/admin/system' }, 'Quản lý hệ thống')
+            )
+          ),
+          React.createElement('main', { className: 'flex-1 p-6' }, children)
+        )
+      );
+    }
+
+    function SectionTitle({ title, actions }) {
+      return (
+        React.createElement('div', { className: 'mb-4 flex items-center justify-between' },
+          React.createElement('h1', { className: 'text-2xl font-semibold' }, title),
+          actions || null
+        )
+      );
+    }
+
+    function Table({ columns, rows, rowKey }) {
+      return (
+        React.createElement('div', { className: 'overflow-x-auto bg-white rounded border' },
+          React.createElement('table', { className: 'min-w-full divide-y divide-gray-200' },
+            React.createElement('thead', { className: 'bg-gray-50' },
+              React.createElement('tr', null,
+                columns.map((c, i) => (
+                  React.createElement('th', { key: i, className: 'px-4 py-2 text-left text-sm font-semibold text-gray-700' }, c.header)
+                ))
+              )
+            ),
+            React.createElement('tbody', { className: 'divide-y divide-gray-100' },
+              rows.map((r, idx) => (
+                React.createElement('tr', { key: rowKey ? rowKey(r) : idx, className: 'hover:bg-gray-50' },
+                  columns.map((c, i) => (
+                    React.createElement('td', { key: i, className: 'px-4 py-2 text-sm text-gray-800' },
+                      typeof c.cell === 'function' ? c.cell(r) : r[c.accessor]
+                    )
+                  ))
+                )
+              ))
+            )
+          )
+        )
+      );
+    }
+
+    // 1) Phê duyệt đăng ký tham gia hoạt động (danh sách sinh viên)
+    function ApproveRegistrationsPage() {
+      const [data, setData] = useState([
+        { id: '1', name: 'Nguyễn Văn A', mssv: 'SV001', lop: 'DH20TH1', hoatdong: 'Hiến máu' },
+        { id: '2', name: 'Trần Thị B', mssv: 'SV002', lop: 'DH20TH2', hoatdong: 'Tình nguyện' },
+        { id: '3', name: 'Lê Văn C', mssv: 'SV003', lop: 'DH20TH1', hoatdong: 'Vệ sinh' }
+      ]);
+
+      const approve = (row) => {
+        alert('Phê duyệt đăng ký của: ' + row.name);
+      };
+      const reject = (row) => {
+        const reason = prompt('Nhập lý do từ chối cho ' + row.name + ':');
+        if (reason !== null) {
+          alert('Từ chối: ' + row.name + '\nLý do: ' + (reason || '(không ghi)'));
+        }
+      };
+
+      const columns = [
+        { header: 'Họ tên', accessor: 'name' },
+        { header: 'MSSV', accessor: 'mssv' },
+        { header: 'Lớp', accessor: 'lop' },
+        { header: 'Hoạt động', accessor: 'hoatdong' },
+        { header: 'Thao tác', cell: (r) => (
+          React.createElement('div', { className: 'flex gap-2' },
+            React.createElement('button', { className: 'px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700', onClick: () => approve(r) }, 'Phê duyệt'),
+            React.createElement('button', { className: 'px-3 py-1 rounded bg-rose-600 text-white hover:bg-rose-700', onClick: () => reject(r) }, 'Từ chối')
+          )
+        ) }
+      ];
+
+      return (
+        React.createElement(Layout, null,
+          React.createElement(SectionTitle, { title: 'Phê duyệt đăng ký tham gia hoạt động' }),
+          React.createElement(Table, { columns, rows: data, rowKey: (r) => r.id })
+        )
+      );
+    }
+
+    // 2) Báo cáo – Thống kê
+    function ReportsPage() {
+      const [classRate] = useState([
+        { name: 'DH20TH1', value: 65 },
+        { name: 'DH20TH2', value: 52 },
+        { name: 'DH20TH3', value: 78 }
+      ]);
+      const [summary] = useState([
+        { label: 'Tổng hoạt động', value: 28 },
+        { label: 'Sinh viên tham gia', value: 412 },
+        { label: 'Điểm RL TB', value: 76 }
+      ]);
+
+      const [tableData] = useState([
+        { lop: 'DH20TH1', diemTB: 78, thamgia: 120 },
+        { lop: 'DH20TH2', diemTB: 74, thamgia: 98 },
+        { lop: 'DH20TH3', diemTB: 76, thamgia: 110 }
+      ]);
+
+      const exportFile = (type) => {
+        alert('Xuất báo cáo (' + type + ') - demo');
+      };
+
+      return (
+        React.createElement(Layout, null,
+          React.createElement(SectionTitle, { title: 'Báo cáo - Thống kê',
+            actions: React.createElement('div', { className: 'flex gap-2' },
+              React.createElement('button', { className: 'px-3 py-1 rounded bg-sky-600 text-white hover:bg-sky-700', onClick: () => exportFile('Excel') }, 'Xuất Excel'),
+              React.createElement('button', { className: 'px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700', onClick: () => exportFile('PDF') }, 'Xuất PDF')
+            )
+          }),
+
+          React.createElement('div', { className: 'grid md:grid-cols-3 gap-4 mb-6' },
+            summary.map((s, i) => (
+              React.createElement('div', { key: i, className: 'bg-white rounded border p-4' },
+                React.createElement('div', { className: 'text-sm text-gray-500' }, s.label),
+                React.createElement('div', { className: 'text-2xl font-semibold' }, s.value)
+              )
+            ))
+          ),
+
+          React.createElement('div', { className: 'grid md:grid-cols-2 gap-4 mb-6' },
+            React.createElement('div', { className: 'bg-white rounded border p-4' },
+              React.createElement('div', { className: 'font-semibold mb-2' }, 'Tỷ lệ tham gia theo lớp (tròn - demo)'),
+              React.createElement('div', { className: 'flex flex-wrap gap-2' },
+                classRate.map((c) => (
+                  React.createElement('div', { key: c.name, className: 'flex items-center gap-2' },
+                    React.createElement('span', { className: 'inline-block w-3 h-3 rounded-full bg-sky-500' }),
+                    React.createElement('span', null, c.name + ': ' + c.value + '%')
+                  )
+                ))
+              )
+            ),
+            React.createElement('div', { className: 'bg-white rounded border p-4' },
+              React.createElement('div', { className: 'font-semibold mb-2' }, 'Số hoạt động theo thời gian (cột - demo)'),
+              React.createElement('div', { className: 'h-40 grid grid-cols-6 gap-2 items-end' },
+                [12, 18, 10, 22, 15, 19].map((v, i) => (
+                  React.createElement('div', { key: i, className: 'bg-emerald-500', style: { height: (v * 4) + 'px' } })
+                ))
+              )
+            )
+          ),
+
+          React.createElement(Table, {
+            columns: [
+              { header: 'Lớp', accessor: 'lop' },
+              { header: 'Điểm RL TB', accessor: 'diemTB' },
+              { header: 'SV tham gia', accessor: 'thamgia' }
+            ],
+            rows: tableData,
+            rowKey: (r) => r.lop
+          })
+        )
+      );
+    }
+
+    // 3) Phê duyệt hoạt động (Giảng viên)
+    function ApproveActivitiesPage() {
+      const [rows, setRows] = useState([
+        { id: 'hd1', name: 'Sự kiện A', creator: 'Lớp trưởng DH20TH1', status: 'chờ duyệt' },
+        { id: 'hd2', name: 'Sự kiện B', creator: 'Lớp trưởng DH20TH2', status: 'chờ duyệt' }
+      ]);
+
+      const approve = (r) => alert('Phê duyệt hoạt động: ' + r.name);
+      const reject = (r) => {
+        const reason = prompt('Nhập lý do từ chối hoạt động: ' + r.name);
+        if (reason !== null) alert('Đã từ chối: ' + r.name + '\nLý do: ' + (reason || '(không ghi)'));
+      };
+
+      return (
+        React.createElement(Layout, null,
+          React.createElement(SectionTitle, { title: 'Phê duyệt hoạt động (Giảng viên)' }),
+          React.createElement(Table, {
+            columns: [
+              { header: 'Tên hoạt động', accessor: 'name' },
+              { header: 'Người tạo', accessor: 'creator' },
+              { header: 'Trạng thái', accessor: 'status' },
+              { header: 'Thao tác', cell: (r) => (
+                React.createElement('div', { className: 'flex gap-2' },
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700', onClick: () => approve(r) }, 'Phê duyệt'),
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-rose-600 text-white hover:bg-rose-700', onClick: () => reject(r) }, 'Từ chối')
+                )
+              ) }
+            ],
+            rows,
+            rowKey: (r) => r.id
+          })
+        )
+      );
+    }
+
+    // 4) Admin Dashboard
+    function AdminDashboard() {
+      const cards = [
+        { label: 'Tổng người dùng', value: 1250 },
+        { label: 'Hoạt động đang diễn ra', value: 8 },
+        { label: 'Truy cập hôm nay', value: 356 },
+        { label: 'Truy cập tuần', value: 2180 }
+      ];
+      return (
+        React.createElement(Layout, null,
+          React.createElement(SectionTitle, { title: 'Bảng điều khiển (Quản trị viên)' }),
+          React.createElement('div', { className: 'grid md:grid-cols-4 gap-4 mb-6' },
+            cards.map((c, i) => (
+              React.createElement('div', { key: i, className: 'bg-white rounded border p-4' },
+                React.createElement('div', { className: 'text-sm text-gray-500' }, c.label),
+                React.createElement('div', { className: 'text-2xl font-semibold' }, c.value)
+              )
+            ))
+          ),
+          React.createElement('div', { className: 'grid md:grid-cols-2 gap-4' },
+            React.createElement('div', { className: 'bg-white rounded border p-4' },
+              React.createElement('div', { className: 'font-semibold mb-2' }, 'Tăng trưởng người dùng (demo)'),
+              React.createElement('div', { className: 'h-40 grid grid-cols-8 gap-2 items-end' },
+                [5, 8, 6, 10, 7, 12, 9, 14].map((v, i) => (
+                  React.createElement('div', { key: i, className: 'bg-indigo-500', style: { height: (v * 6) + 'px' } })
+                ))
+              )
+            ),
+            React.createElement('div', { className: 'bg-white rounded border p-4' },
+              React.createElement('div', { className: 'font-semibold mb-2' }, 'Số hoạt động theo thời gian (demo)'),
+              React.createElement('div', { className: 'h-40 grid grid-cols-8 gap-2 items-end' },
+                [3, 4, 6, 7, 5, 9, 11, 8].map((v, i) => (
+                  React.createElement('div', { key: i, className: 'bg-emerald-500', style: { height: (v * 6) + 'px' } })
+                ))
+              )
+            )
+          )
+        )
+      );
+    }
+
+    // 5) Quản lý tài khoản (Admin)
+    function AdminAccounts() {
+      const [query, setQuery] = useState('');
+      const [role, setRole] = useState('all');
+      const [status, setStatus] = useState('all');
+      const [rows, setRows] = useState([
+        { id: 'u1', username: 'sv001', email: 'a@u.edu', name: 'Nguyễn Văn A', role: 'student', status: 'hoạt động' },
+        { id: 'u2', username: 'gv01', email: 'gv@u.edu', name: 'Cô B', role: 'teacher', status: 'hoạt động' },
+        { id: 'u3', username: 'admin', email: 'admin@u.edu', name: 'Admin', role: 'admin', status: 'bị khóa' }
+      ]);
+
+      const filtered = rows.filter(r =>
+        [r.username, r.email, r.name].some(x => x.toLowerCase().includes(query.toLowerCase())) &&
+        (role === 'all' || r.role === role) &&
+        (status === 'all' || r.status === status)
+      );
+
+      const view = (r) => alert('Xem chi tiết: ' + r.username);
+      const editRole = (r) => {
+        const newRole = prompt('Nhập vai trò mới (student/teacher/admin):', r.role);
+        if (newRole) alert('Cập nhật vai trò ' + r.username + ' -> ' + newRole);
+      };
+      const toggleLock = (r) => alert((r.status === 'bị khóa' ? 'Mở khóa' : 'Khóa') + ' tài khoản: ' + r.username);
+      const resetPw = (r) => alert('Đặt lại mật khẩu cho: ' + r.username);
+
+      return (
+        React.createElement(Layout, null,
+          React.createElement(SectionTitle, { title: 'Quản lý tài khoản (Quản trị viên)' }),
+          React.createElement('div', { className: 'bg-white rounded border p-4 mb-4 grid md:grid-cols-4 gap-3' },
+            React.createElement('input', { className: 'border rounded px-3 py-2', placeholder: 'Tìm theo tên đăng nhập, email, họ tên', value: query, onChange: (e) => setQuery(e.target.value) }),
+            React.createElement('select', { className: 'border rounded px-3 py-2', value: role, onChange: (e) => setRole(e.target.value) },
+              React.createElement('option', { value: 'all' }, 'Tất cả vai trò'),
+              React.createElement('option', { value: 'student' }, 'Sinh viên'),
+              React.createElement('option', { value: 'teacher' }, 'Giảng viên'),
+              React.createElement('option', { value: 'admin' }, 'Quản trị')
+            ),
+            React.createElement('select', { className: 'border rounded px-3 py-2', value: status, onChange: (e) => setStatus(e.target.value) },
+              React.createElement('option', { value: 'all' }, 'Tất cả trạng thái'),
+              React.createElement('option', { value: 'hoạt động' }, 'Hoạt động'),
+              React.createElement('option', { value: 'bị khóa' }, 'Bị khóa')
+            )
+          ),
+          React.createElement(Table, {
+            columns: [
+              { header: 'Tên đăng nhập', accessor: 'username' },
+              { header: 'Email', accessor: 'email' },
+              { header: 'Họ tên', accessor: 'name' },
+              { header: 'Vai trò', accessor: 'role' },
+              { header: 'Trạng thái', accessor: 'status' },
+              { header: 'Thao tác', cell: (r) => (
+                React.createElement('div', { className: 'flex gap-2' },
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-gray-200 hover:bg-gray-300', onClick: () => view(r) }, 'Xem chi tiết'),
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-sky-600 text-white hover:bg-sky-700', onClick: () => editRole(r) }, 'Chỉnh sửa vai trò'),
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-amber-600 text-white hover:bg-amber-700', onClick: () => toggleLock(r) }, 'Khóa/Mở khóa'),
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700', onClick: () => resetPw(r) }, 'Đặt lại mật khẩu')
+                )
+              ) }
+            ],
+            rows: filtered,
+            rowKey: (r) => r.id
+          })
+        )
+      );
+    }
+
+    // 6) Quản lý hệ thống (Admin) với Tabs
+    function AdminSystem() {
+      const [tab, setTab] = useState('roles');
+
+      const RolesTab = () => (
+        React.createElement('div', { className: 'bg-white rounded border p-4' },
+          React.createElement('div', { className: 'font-semibold mb-3' }, 'Quản lý vai trò'),
+          React.createElement('div', { className: 'flex gap-2 mb-3' },
+            React.createElement('input', { className: 'border rounded px-3 py-2', placeholder: 'Tên vai trò' }),
+            React.createElement('button', { className: 'px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700' }, 'Thêm vai trò')
+          ),
+          React.createElement(Table, {
+            columns: [
+              { header: 'Tên vai trò', accessor: 'name' },
+              { header: 'Quyền hạn', accessor: 'perms' },
+              { header: 'Thao tác', cell: () => (
+                React.createElement('div', { className: 'flex gap-2' },
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-sky-600 text-white hover:bg-sky-700' }, 'Sửa'),
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-rose-600 text-white hover:bg-rose-700' }, 'Xóa')
+                )
+              ) }
+            ],
+            rows: [
+              { id: 'r1', name: 'student', perms: 'Xem, đăng ký' },
+              { id: 'r2', name: 'teacher', perms: 'Duyệt hoạt động' },
+              { id: 'r3', name: 'admin', perms: 'Quản trị toàn hệ thống' }
+            ],
+            rowKey: (r) => r.id
+          })
+        )
+      );
+
+      const ActivitiesTab = () => (
+        React.createElement('div', { className: 'bg-white rounded border p-4' },
+          React.createElement('div', { className: 'font-semibold mb-3' }, 'Quản lý hoạt động'),
+          React.createElement(Table, {
+            columns: [
+              { header: 'Tên hoạt động', accessor: 'name' },
+              { header: 'Trạng thái', accessor: 'status' },
+              { header: 'Thao tác', cell: () => (
+                React.createElement('div', { className: 'flex gap-2' },
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-sky-600 text-white hover:bg-sky-700' }, 'Sửa'),
+                  React.createElement('button', { className: 'px-3 py-1 rounded bg-rose-600 text-white hover:bg-rose-700' }, 'Xóa')
+                )
+              ) }
+            ],
+            rows: [
+              { id: 'a1', name: 'Hoạt động 1', status: 'đã duyệt' },
+              { id: 'a2', name: 'Hoạt động 2', status: 'chờ duyệt' }
+            ],
+            rowKey: (r) => r.id
+          })
+        )
+      );
+
+      return (
+        React.createElement(Layout, null,
+          React.createElement(SectionTitle, { title: 'Quản lý hệ thống (Quản trị viên)' }),
+          React.createElement('div', { className: 'mb-4 flex gap-2' },
+            React.createElement('button', { className: `px-3 py-2 rounded ${tab === 'roles' ? 'bg-gray-900 text-white' : 'bg-gray-200'}`, onClick: () => setTab('roles') }, 'Quản lý vai trò'),
+            React.createElement('button', { className: `px-3 py-2 rounded ${tab === 'activities' ? 'bg-gray-900 text-white' : 'bg-gray-200'}`, onClick: () => setTab('activities') }, 'Quản lý hoạt động')
+          ),
+          tab === 'roles' ? React.createElement(RolesTab) : React.createElement(ActivitiesTab)
+        )
+      );
+    }
+
+    function Home() {
+      const navigate = useNavigate();
+      return (
+        React.createElement(Layout, null,
+          React.createElement('div', { className: 'space-y-4' },
+            React.createElement('h1', { className: 'text-2xl font-semibold' }, 'Chọn màn hình để xem demo'),
+            React.createElement('div', { className: 'flex flex-wrap gap-2' },
+              React.createElement('button', { className: 'px-3 py-2 rounded bg-gray-900 text-white', onClick: () => navigate('/duyet-dang-ky') }, 'Phê duyệt đăng ký'),
+              React.createElement('button', { className: 'px-3 py-2 rounded bg-gray-900 text-white', onClick: () => navigate('/bao-cao') }, 'Báo cáo - Thống kê'),
+              React.createElement('button', { className: 'px-3 py-2 rounded bg-gray-900 text-white', onClick: () => navigate('/duyet-hoat-dong') }, 'Phê duyệt hoạt động'),
+              React.createElement('button', { className: 'px-3 py-2 rounded bg-gray-900 text-white', onClick: () => navigate('/admin/dashboard') }, 'Admin Dashboard'),
+              React.createElement('button', { className: 'px-3 py-2 rounded bg-gray-900 text-white', onClick: () => navigate('/admin/accounts') }, 'Quản lý tài khoản'),
+              React.createElement('button', { className: 'px-3 py-2 rounded bg-gray-900 text-white', onClick: () => navigate('/admin/system') }, 'Quản lý hệ thống')
+            )
+          )
+        )
+      );
+    }
+
+    function App() {
+      return (
+        React.createElement(BrowserRouter, null,
+          React.createElement(Routes, null,
+            React.createElement(Route, { path: '/', element: React.createElement(Home) }),
+            React.createElement(Route, { path: '/duyet-dang-ky', element: React.createElement(ApproveRegistrationsPage) }),
+            React.createElement(Route, { path: '/bao-cao', element: React.createElement(ReportsPage) }),
+            React.createElement(Route, { path: '/duyet-hoat-dong', element: React.createElement(ApproveActivitiesPage) }),
+            React.createElement(Route, { path: '/admin/dashboard', element: React.createElement(AdminDashboard) }),
+            React.createElement(Route, { path: '/admin/accounts', element: React.createElement(AdminAccounts) }),
+            React.createElement(Route, { path: '/admin/system', element: React.createElement(AdminSystem) })
+          )
+        )
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
+
+
