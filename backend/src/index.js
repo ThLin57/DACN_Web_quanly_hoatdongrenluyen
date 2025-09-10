@@ -48,14 +48,6 @@ app.use((req, res, next) => {
 // API routes
 app.use('/api', routes);
 
-// Serve static frontend (no build) for demo UI
-app.use(express.static('frontend'));
-
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(require('path').join(process.cwd(), 'frontend', 'index.html'));
-});
-
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
