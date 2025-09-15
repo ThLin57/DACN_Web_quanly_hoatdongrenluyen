@@ -1,26 +1,23 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Header from './components/Header';
-import Home from './pages/Home';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
 
 function App() {
   return React.createElement(
     BrowserRouter,
     null,
     React.createElement(
-      'div',
-      { className: 'min-h-screen bg-gray-50 text-gray-900' },
+      Routes,
+      null,
       [
-        React.createElement(Header, { key: 'header' }),
-        React.createElement(
-          'main',
-          { key: 'main', className: 'max-w-5xl mx-auto p-6' },
-          React.createElement(
-            Routes,
-            null,
-            React.createElement(Route, { path: '/', element: React.createElement(Home) })
-          )
-        ),
+        React.createElement(Route, { key: 'login', path: '/login', element: React.createElement(Login) }),
+        React.createElement(Route, { key: 'register', path: '/register', element: React.createElement(Register) }),
+        React.createElement(Route, { key: 'profile', path: '/profile', element: React.createElement(Profile) }),
+        React.createElement(Route, { key: 'dashboard', path: '/*', element: React.createElement(Dashboard) }),
+        React.createElement(Route, { key: 'catchall', path: '*', element: React.createElement(Navigate, { to: '/', replace: true }) })
       ]
     )
   );

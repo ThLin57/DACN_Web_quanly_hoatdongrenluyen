@@ -22,6 +22,7 @@ class UserModel {
       trangthai: user.trang_thai,
       ngaysinh: user.sinhVien?.ngay_sinh || null,
       gt: user.sinhVien?.gt || null,
+      sdt: user.sinhVien?.sdt || null,
       createdAt: user.ngay_tao,
       updatedAt: user.ngay_cap_nhat
     };
@@ -43,7 +44,7 @@ class UserModel {
     return this.toDTO(user);
   }
 
-  static async updateBasic(id, { maso, name, trangthai, ngaysinh, gt }) {
+  static async updateBasic(id, { maso, name, trangthai, ngaysinh, gt, sdt }) {
     const dataUser = { ngay_cap_nhat: new Date() };
     if (typeof maso !== 'undefined') dataUser.ten_dn = maso;
     if (typeof name !== 'undefined') dataUser.ho_ten = name;
@@ -52,11 +53,12 @@ class UserModel {
     const ops = [];
     ops.push(prisma.nguoiDung.update({ where: { id }, data: dataUser }));
 
-    const updateSV = (typeof ngaysinh !== 'undefined') || (typeof gt !== 'undefined');
+    const updateSV = (typeof ngaysinh !== 'undefined') || (typeof gt !== 'undefined') || (typeof sdt !== 'undefined');
     if (updateSV) {
       const dataSv = {};
       if (typeof ngaysinh !== 'undefined') dataSv.ngay_sinh = ngaysinh ? new Date(ngaysinh) : null;
       if (typeof gt !== 'undefined') dataSv.gt = gt || null;
+      if (typeof sdt !== 'undefined') dataSv.sdt = sdt || null;
       ops.push(prisma.sinhVien.updateMany({ where: { nguoi_dung_id: id }, data: dataSv }));
     }
 

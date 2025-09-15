@@ -11,7 +11,9 @@ const registerSchema = z.object({
   maso: z.string().regex(/^\d{7}$/, 'Mã số sinh viên phải có đúng 7 chữ số'),
   email: z.string().email('Email không hợp lệ'),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
-  confirmPassword: z.string()
+  confirmPassword: z.string(),
+  lopId: z.string().uuid('Lớp không hợp lệ').optional(),
+  khoa: z.string().min(1, 'Khoa là bắt buộc').optional()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Mật khẩu xác nhận không khớp",
   path: ["confirmPassword"]

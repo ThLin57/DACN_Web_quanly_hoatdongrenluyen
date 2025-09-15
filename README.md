@@ -63,8 +63,6 @@ DACN/
 │   ├── package.json
 │   ├── STRUCTURE.md        # Frontend structure documentation
 │   └── README.md           # Frontend documentation
-├── giao-dien/              # React Frontend (Vite) - Vietnamese naming
-├── hau-truong/             # Express Backend - Vietnamese naming
 ├── docker/                 # Docker configuration
 └── README.md               # This file
 ```
