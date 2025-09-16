@@ -1,0 +1,193 @@
+import { Link } from 'react-router-dom';
+import React from 'react';
+import http from '../services/http';
+
+export default function Header() {
+	const [profile, setProfile] = React.useState(null);
+	const [open, setOpen] = React.useState(false);
+	const [notifOpen, setNotifOpen] = React.useState(false);
+	const [notifications, setNotifications] = React.useState([]);
+	const [searchQuery, setSearchQuery] = React.useState('');
+
+	React.useEffect(function loadProfile(){
+		let mounted = true;
+		console.log('Header: Loading profile...');
+		http.get('/auth/profile')
+			.then(function(res){ 
+				if(!mounted) return; 
+				const profileData = res.data?.data || null;
+				console.log('Header: Profile loaded:', profileData);
+				setProfile(profileData); 
+			})
+			.catch(function(err){ 
+				console.log('Header: Profile load failed:', err);
+				setProfile(null); 
+			});
+		return function(){ mounted = false; };
+	}, []);
+
+	React.useEffect(function loadNotifications(){
+		if(!profile) return;
+		let mounted = true;
+		// Sample notifications - replace with real API call
+		const sampleNotifs = [
+			{ id: 1, title: 'Cập nhật lịch hoạt động tuần này', message: 'Có 3 hoạt động mới được thêm vào lịch tuần này', time: '2 giờ trước', unread: true },
+			{ id: 2, title: 'Thông báo từ Ban quản lý', message: 'Hạn nộp báo cáo hoạt động là 25/12', time: '1 ngày trước', unread: false },
+			{ id: 3, title: 'Hoạt động sắp diễn ra', message: 'Hoạt động tình nguyện sẽ bắt đầu vào 8h ngày mai', time: '2 ngày trước', unread: false }
+		];
+		if(mounted) setNotifications(sampleNotifs);
+		return function(){ mounted = false; };
+	}, [profile]);
+
+	function signOut(){
+		try { window.localStorage.removeItem('token'); } catch(_){}
+		window.location.href = '/login';
+	}
+
+	function handleSearch(e) {
+		e.preventDefault();
+		if(searchQuery.trim()) {
+			// Implement search logic here
+			console.log('Search for:', searchQuery);
+		}
+	}
+
+	function markAsRead(notifId) {
+		setNotifications(prev => prev.map(n => n.id === notifId ? {...n, unread: false} : n));
+	}
+
+	const userAvatar = profile ? (profile.name || profile.ho_ten || profile.email || profile.maso || profile.ten_dn || 'U').slice(0,1).toUpperCase() : null;
+	const unreadCount = notifications.filter(n => n.unread).length;
+
+	console.log('Header render:', { profile, userAvatar, hasProfile: !!profile });
+
+	return (
+		<header className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+			<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+				{/* Logo */}
+				<Link to="/" className="flex items-center gap-2 font-semibold text-gray-900 hover:opacity-90 transition flex-shrink-0">
+					<span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-sm font-bold">
+						TA
+					</span>
+					<span className="text-base sm:text-lg">TailAdmin</span>
+				</Link>
+
+				{/* Search bar - only show when authenticated */}
+				{profile && (
+					<form onSubmit={handleSearch} className="flex-1 max-w-lg mx-4">
+						<div className="relative">
+							<input
+								type="text"
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								placeholder="Tìm kiếm hoạt động, sinh viên..."
+								className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50/50 text-sm"
+							/>
+							<span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+								🔍
+							</span>
+						</div>
+					</form>
+				)}
+
+				{/* User section */}
+				{profile ? (
+					'div',
+					{ key: 'user', className: 'flex items-center gap-3 relative' },
+					[
+						// Notifications with dropdown
+						React.createElement(
+							'div',
+							{ key: 'notif-wrapper', className: 'relative' },
+							[
+								React.createElement('button', { 
+									key: 'notif', 
+									type: 'button', 
+									onClick: () => setNotifOpen(!notifOpen),
+									className: 'relative p-2 rounded-full hover:bg-gray-100 text-gray-600 transition',
+									title: 'Thông báo' 
+								}, [
+									React.createElement('span', { key: 'bell', className: 'text-lg' }, '🔔'),
+									unreadCount > 0 ? React.createElement('span', { 
+										key: 'badge',
+										className: 'absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold'
+									}, unreadCount > 9 ? '9+' : unreadCount) : null
+								]),
+								notifOpen ? React.createElement(
+									'div',
+									{ key: 'notif-dropdown', className: 'absolute right-0 top-12 w-80 bg-white shadow-xl rounded-xl border border-gray-100 p-4 ring-1 ring-black/5 max-h-96 overflow-y-auto' },
+									[
+										React.createElement('div', { key: 'header', className: 'flex items-center justify-between mb-3' }, [
+											React.createElement('h3', { key: 'title', className: 'font-semibold text-gray-900' }, 'Thông báo'),
+											React.createElement('span', { key: 'count', className: 'text-xs text-gray-500' }, `${notifications.length} thông báo`)
+										]),
+										React.createElement('div', { key: 'divider', className: 'h-px bg-gray-200 mb-3' }),
+										notifications.length > 0 ? React.createElement(
+											'div',
+											{ key: 'list', className: 'space-y-3' },
+											notifications.map(notif => React.createElement(
+												'div',
+												{ 
+													key: notif.id, 
+													className: 'p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition ' + (notif.unread ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200'),
+													onClick: () => markAsRead(notif.id)
+												},
+												[
+													React.createElement('div', { key: 'header', className: 'flex items-start justify-between mb-1' }, [
+														React.createElement('h4', { key: 'title', className: 'font-medium text-sm text-gray-900' }, notif.title),
+														notif.unread ? React.createElement('span', { key: 'dot', className: 'w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1' }) : null
+													]),
+													React.createElement('p', { key: 'msg', className: 'text-xs text-gray-600 mb-2' }, notif.message),
+													React.createElement('span', { key: 'time', className: 'text-xs text-gray-400' }, notif.time)
+												]
+											))
+										) : React.createElement('p', { key: 'empty', className: 'text-center text-gray-500 text-sm py-4' }, 'Không có thông báo mới')
+									]
+								) : null
+							]
+						),
+						React.createElement('div', { key: 'divider', className: 'w-px h-6 bg-gray-200' }),
+						React.createElement(
+							'button',
+							{ key: 'menu', type: 'button', onClick: function onClick(){ setOpen(!open); }, className: 'flex items-center gap-3 hover:opacity-90' },
+							[
+								React.createElement('div', { key: 'name', className: 'text-right hidden sm:block' }, [
+									React.createElement('div', { key: 'n', className: 'text-sm font-semibold text-gray-900' }, profile?.name || profile?.ho_ten || 'Người dùng'),
+									React.createElement('div', { key: 'e', className: 'text-xs text-gray-500' }, profile?.email || profile?.ten_dn || '')
+								]),
+								React.createElement('div', { key: 'avatar', className: 'w-9 h-9 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center text-sm font-bold text-gray-700 ring-1 ring-gray-300' }, userAvatar)
+							]
+						),
+						open ? React.createElement(
+							'div',
+							{ key: 'dropdown', className: 'absolute right-0 top-12 w-72 bg-white shadow-xl rounded-xl border border-gray-100 p-3 ring-1 ring-black/5' },
+							[
+								React.createElement('div', { key: 'head', className: 'px-3 py-2' }, [
+									React.createElement('div', { key: 'n', className: 'text-sm font-semibold text-gray-900' }, profile?.name || profile?.ho_ten || 'Người dùng'),
+									React.createElement('div', { key: 'm', className: 'text-xs text-gray-500' }, profile?.email || profile?.ten_dn || '')
+								]),
+								React.createElement('div', { key: 'items', className: 'py-2' }, [
+									React.createElement(Link, { key: 'profile', to: '/profile', className: 'flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-sm text-gray-700' }, 'Thông tin cá nhân'),
+									React.createElement('a', { key: 'settings', href: '#/settings', className: 'flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-sm text-gray-700' }, 'Cài đặt tài khoản'),
+									React.createElement('a', { key: 'support', href: '#/support', className: 'flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 text-sm text-gray-700' }, 'Hỗ trợ'),
+								]),
+								React.createElement('div', { key: 'divider2', className: 'h-px bg-gray-200 my-2' }),
+								React.createElement('button', { key: 'logout', type: 'button', onClick: signOut, className: 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm text-gray-700' }, 'Đăng xuất')
+							]
+						) : null
+					]
+				) : React.createElement(
+					'nav',
+					{ key: 'nav', className: 'flex items-center gap-4 text-sm text-gray-600' },
+					[
+						React.createElement(Link, { key: 'home', to: '/', className: 'hover:text-gray-900 transition' }, 'Home'),
+						React.createElement(Link, { key: 'login', to: '/login', className: 'inline-flex items-center rounded-lg px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 transition' }, 'Login')
+						// Removed Register link as requested
+					]
+				)
+			]
+		)
+	);
+}
+
+

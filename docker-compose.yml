@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:15
+    container_name: dacn_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: abc
+      POSTGRES_DB: Web_QuanLyDiemRenLuyen
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - dacn_network
+
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: dacn_app
+    depends_on:
+      - db
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://admin:abc@db:5432/Web_QuanLyDiemRenLuyen?schema=public
+      JWT_SECRET: supersecret_in_docker_change_me
+      JWT_EXPIRES_IN: 1d
+      CORS_ORIGIN: http://localhost:3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - type: bind
+        source: ./backend/logs
+        target: /app/backend/logs
+    networks:
+      - dacn_network
+
+volumes:
+  pgdata:
+
+networks:
+  dacn_network:
+    driver: bridge
