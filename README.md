@@ -5,6 +5,25 @@ Hệ thống quản lý hoạt động rèn luyện cho sinh viên với đầy 
 
 ## ⚡ Quick Start (Cài đặt nhanh)
 
+### 🧰 Chuẩn bị trước khi chạy setup
+- Đảm bảo Docker đã chạy trước khi chạy script setup.
+- Nếu bạn từng chạy dự án trước đó, nên reset database để tránh xung đột migrations.
+
+```bash
+# Windows: Mở Docker Desktop rồi reset database
+# 1) Mở Docker Desktop (Start Menu → Docker Desktop) và chờ "Engine running"
+# 2) Reset database (xóa volume cũ và tạo lại)
+cd backend
+docker compose down -v
+docker compose up -d
+
+# Linux/macOS: đảm bảo dịch vụ docker đang chạy, rồi reset database
+sudo systemctl start docker  # nếu cần
+cd backend
+docker compose down -v
+docker compose up -d
+```
+
 ### 🪟 Windows (1 lệnh duy nhất)
 ```bash
 # Clone + Setup tự động
