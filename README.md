@@ -5,43 +5,31 @@ Hệ thống quản lý hoạt động rèn luyện cho sinh viên với đầy 
 
 ## ⚡ Quick Start (Cài đặt nhanh)
 
-### 📋 Bước 1: Tải về dự án
+### 🪟 Windows (1 lệnh duy nhất)
 ```bash
-git clone https://github.com/ThLin57/DACN_Web_quanly_hoatdongrenluyen.git
-cd DACN_Web_quanly_hoatdongrenluyen
+# Clone + Setup tự động
+git clone https://github.com/ThLin57/DACN_Web_quanly_hoatdongrenluyen.git && cd DACN_Web_quanly_hoatdongrenluyen && setup.bat
 ```
 
-### 🪟 Bước 2: Chạy setup tự động (Windows)
+### 🐧 Linux/macOS (1 lệnh duy nhất)
 ```bash
-# Chạy file setup.bat (double-click hoặc chạy trong Command Prompt)
-setup.bat
+# Clone + Setup tự động
+git clone https://github.com/ThLin57/DACN_Web_quanly_hoatdongrenluyen.git && cd DACN_Web_quanly_hoatdongrenluyen && chmod +x setup.sh && ./setup.sh
 ```
 
-### 🐧 Bước 2: Chạy setup tự động (Linux/macOS)
+### 🚀 Khởi động ứng dụng (sau khi setup xong)
+- Terminal 1 (Backend):
 ```bash
-# Cấp quyền thực thi và chạy
-chmod +x setup.sh
-./setup.sh
+cd backend && npm start
+```
+- Terminal 2 (Frontend):
+```bash
+cd frontend && npm start
 ```
 
-### 🚀 Bước 3: Khởi động ứng dụng
-Sau khi setup xong, mở **2 terminal** và chạy:
-
-**Terminal 1 - Backend:**
-```bash
-cd backend
-npm start
-```
-
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
-npm start
-```
-
-### 🌐 Bước 4: Truy cập ứng dụng
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
+### 🌐 Truy cập
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
 
 ## 🎯 Yêu cầu hệ thống
 
