@@ -1,12 +1,13 @@
 // Integrated from attached design: Dashboard/DashboardStudent.js
 import React from 'react';
-import { Calendar, Award, TrendingUp, Clock, MapPin, ChevronRight, Target, Activity as ActivityIcon, BookOpen } from 'lucide-react';
+import { Calendar, Award, TrendingUp, Clock, MapPin, ChevronRight, Target, Activity as ActivityIcon } from 'lucide-react';
 import { http } from '../../services/http';
 
 export default function StudentDashboard(){
   const [summary, setSummary] = React.useState({ totalPoints: 0, progress: 0, targetPoints: 100, activitiesJoined: 0 });
   const [upcoming, setUpcoming] = React.useState([]);
-  const [recentActivities, setRecentActivities] = React.useState([]);
+  const [myActivities, setMyActivities] = React.useState([]);
+  const [myActivitiesLoading, setMyActivitiesLoading] = React.useState(false);
   const [ranking, setRanking] = React.useState({ ranking: [], currentUserRank: null });
   const [detail, setDetail] = React.useState(null);
   const [detailOpen, setDetailOpen] = React.useState(false);
@@ -31,14 +32,6 @@ export default function StudentDashboard(){
         const actRes = await http.get('/activities');
         const actData = Array.isArray(actRes.data?.data) ? actRes.data.data : [];
 
-        // 3) Recent activities from the same points breakdown if available
-        const recent = Array.isArray(pts.activityDetails) ? pts.activityDetails.slice(0, 5).map(a => ({
-          id: a.id,
-          ten_hd: a.name,
-          ngay_tham_gia: new Date().toISOString(),
-          diem_rl: a.points
-        })) : [];
-
         if (!mounted) return;
         setSummary({
           totalPoints: Number(pts.total || 0),
@@ -47,7 +40,6 @@ export default function StudentDashboard(){
           activitiesJoined: Number(pts.activitiesCount || 0)
         });
         setRanking(rankData);
-        setRecentActivities(recent);
         setUpcoming(actData);
       } catch (e) {
         // Fallback UI stays minimal; do not throw
@@ -55,6 +47,32 @@ export default function StudentDashboard(){
     }
 
     fetchData();
+    return function(){ mounted = false; };
+  }, []);
+
+  // Load my activities separately
+  React.useEffect(function loadMyActivities(){
+    let mounted = true;
+
+    async function fetchMyActivities(){
+      try {
+        setMyActivitiesLoading(true);
+        const res = await http.get('/auth/my-activities');
+        const activitiesData = res.data?.data || {};
+        const activities = Array.isArray(activitiesData.activities) ? activitiesData.activities : [];
+        
+        if (!mounted) return;
+        setMyActivities(activities);
+      } catch (e) {
+        console.error('Error loading my activities:', e);
+        if (!mounted) return;
+        setMyActivities([]);
+      } finally {
+        if (mounted) setMyActivitiesLoading(false);
+      }
+    }
+
+    fetchMyActivities();
     return function(){ mounted = false; };
   }, []);
 
@@ -146,6 +164,51 @@ export default function StudentDashboard(){
     ]);
   }
 
+  function myActivityCard(activity) {
+    const getStatusInfo = (status) => {
+      const statusMap = {
+        'cho_duyet': { text: 'Chờ duyệt', cls: 'bg-yellow-100 text-yellow-800' },
+        'da_duyet': { text: 'Đã duyệt', cls: 'bg-green-100 text-green-700' },
+        'da_tham_gia': { text: 'Đã tham gia', cls: 'bg-blue-100 text-blue-700' },
+        'tu_choi': { text: 'Từ chối', cls: 'bg-red-100 text-red-700' }
+      };
+      return statusMap[status] || { text: status || 'Không xác định', cls: 'bg-gray-100 text-gray-700' };
+    };
+
+    const statusInfo = getStatusInfo(activity.status);
+    const registrationDate = activity.registrationDate ? new Date(activity.registrationDate).toLocaleDateString('vi-VN') : '';
+    const startDate = activity.startDate ? new Date(activity.startDate).toLocaleDateString('vi-VN') : '';
+
+    return React.createElement('div', { key: activity.id, className: 'p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors' }, [
+      React.createElement('div', { key: 'header', className: 'flex items-start justify-between gap-2 mb-2' }, [
+        React.createElement('div', { key: 'info', className: 'flex-1' }, [
+          React.createElement('div', { key: 'name', className: 'font-medium text-gray-800' }, activity.name || 'Hoạt động'),
+          React.createElement('div', { key: 'details', className: 'text-sm text-gray-500' }, 
+            activity.type + ' • ' + 
+            (startDate || '') + ' • ' +
+            activity.semester + ' • ' + activity.year
+          )
+        ]),
+        React.createElement('span', { 
+          key: 'status', 
+          className: 'px-2 py-1 rounded-full text-xs font-medium ' + statusInfo.cls
+        }, statusInfo.text)
+      ]),
+      React.createElement('div', { key: 'footer', className: 'flex items-center justify-between text-sm' }, [
+        React.createElement('div', { key: 'points', className: 'font-semibold text-green-600' }, 
+          '+' + activity.points + ' điểm'
+        ),
+        React.createElement('div', { key: 'date', className: 'text-gray-500' }, 
+          'Đăng ký: ' + registrationDate
+        )
+      ]),
+      activity.rejectionReason ? React.createElement('div', { 
+        key: 'rejection', 
+        className: 'mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700' 
+      }, 'Lý do từ chối: ' + activity.rejectionReason) : null
+    ]);
+  }
+
   const progressPercent = Math.round((summary.progress || 0) * 100);
   const progressCircle = React.createElement('div', { className: 'relative w-32 h-32' }, [
     React.createElement('svg', { key: 'svg', className: 'w-32 h-32 transform -rotate-90' }, [
@@ -233,12 +296,22 @@ export default function StudentDashboard(){
       ]),
       rankingCard
     ]),
-    React.createElement('div', { key: 'recent', className: 'bg-white rounded-xl border p-6' }, [
-      React.createElement('h2', { key: 'title', className: 'text-lg font-semibold text-gray-900 mb-6' }, 'Hoạt động gần đây'),
-      React.createElement('div', { key: 'content', className: 'space-y-4' }, recentActivities.length > 0 ? recentActivities.map(activity => React.createElement('div', { key: activity.id, className: 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50' }, [
-        React.createElement('div', { key: 'info', className: 'flex items-center' }, [React.createElement('div', { key: 'icon', className: 'h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center mr-4' }, React.createElement(BookOpen, { className: 'h-5 w-5 text-green-600' })), React.createElement('div', { key: 'details' }, [React.createElement('h3', { key: 'name', className: 'font-medium text-gray-900' }, activity.ten_hd), React.createElement('p', { key: 'date', className: 'text-sm text-gray-500' }, new Date(activity.ngay_tham_gia).toLocaleDateString('vi-VN'))])]),
-        React.createElement('div', { key: 'points', className: 'text-right' }, [React.createElement('span', { key: 'value', className: 'bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full' }, `+${activity.diem_rl} điểm`), React.createElement('p', { key: 'status', className: 'text-xs text-gray-500 mt-1' }, 'Hoàn thành')])
-      ])) : [React.createElement('div', { key: 'empty', className: 'text-center py-8 text-gray-500' }, [React.createElement(ActivityIcon, { key: 'icon', className: 'h-12 w-12 mx-auto mb-4 text-gray-300' }), React.createElement('p', { key: 'text' }, 'Chưa có hoạt động nào')])])
+    React.createElement('div', { key: 'my-activities', className: 'bg-white rounded-xl border p-6' }, [
+      React.createElement('h2', { key: 'title', className: 'text-lg font-semibold text-gray-900 mb-6' }, 'Hoạt động của tôi'),
+      // Loading indicator
+      myActivitiesLoading ? React.createElement('div', { key: 'loading', className: 'text-center py-4' }, [
+        React.createElement('div', { key: 'spinner', className: 'inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600' }),
+        React.createElement('div', { key: 'text', className: 'text-sm text-gray-500 mt-2' }, 'Đang tải...')
+      ]) : null,
+      // Activities list
+      React.createElement('div', { key: 'content', className: 'space-y-3 max-h-96 overflow-y-auto' }, 
+        myActivities.length > 0 ? 
+          myActivities.map(myActivityCard) :
+          React.createElement('div', { key: 'empty', className: 'text-center py-8 text-gray-500' }, [
+            React.createElement(ActivityIcon, { key: 'icon', className: 'h-12 w-12 mx-auto mb-4 text-gray-300' }),
+            React.createElement('p', { key: 'text' }, 'Chưa có hoạt động nào được đăng ký')
+          ])
+      )
     ]),
 
     // Detail Drawer/Modal

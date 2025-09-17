@@ -24,6 +24,14 @@ class AuthModel {
       ngaysinh: user.sinh_vien?.ngay_sinh || null,
       gt: user.sinh_vien?.gt || null,
       sdt: user.sinh_vien?.sdt || null,
+      // Thông tin liên hệ gia đình
+      email_phu: user.sinh_vien?.email_phu || null,
+      sdt_cha: user.sinh_vien?.sdt_cha || null,
+      sdt_me: user.sinh_vien?.sdt_me || null,
+      dia_chi_gia_dinh: user.sinh_vien?.dia_chi_gia_dinh || null,
+      sdt_khan_cap: user.sinh_vien?.sdt_khan_cap || null,
+      ten_cha: user.sinh_vien?.ten_cha || null,
+      ten_me: user.sinh_vien?.ten_me || null,
       createdAt: user.ngay_tao,
       updatedAt: user.ngay_cap_nhat
     };

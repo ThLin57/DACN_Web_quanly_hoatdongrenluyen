@@ -249,7 +249,10 @@ router.post('/change', auth, validate(changePasswordSchema), async (req, res) =>
 // Cập nhật thông tin cá nhân (self)
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { maso, name, trangthai, ngaysinh, gt, cccd } = req.body;
+    const { 
+      maso, name, trangthai, ngaysinh, gt, cccd, sdt, email,
+      email_phu, sdt_cha, sdt_me, dia_chi_gia_dinh, sdt_khan_cap, ten_cha, ten_me
+    } = req.body;
 
     // Không cho phép sinh viên cập nhật trạng thái tài khoản
     if (req.user?.role === 'student' && typeof trangthai !== 'undefined') {
@@ -258,7 +261,10 @@ router.put('/profile', auth, async (req, res) => {
 
     // Chỉ admin mới được phép cập nhật mã số (maso)
     const isAdmin = req.user?.role === 'admin';
-    const payload = { name, trangthai, ngaysinh, gt, cccd };
+    const payload = { 
+      name, trangthai, ngaysinh, gt, cccd, sdt, email,
+      email_phu, sdt_cha, sdt_me, dia_chi_gia_dinh, sdt_khan_cap, ten_cha, ten_me
+    };
     if (isAdmin && typeof maso !== 'undefined') payload.maso = maso;
 
     const updated = await UserModel.updateBasic(req.user.sub, payload);

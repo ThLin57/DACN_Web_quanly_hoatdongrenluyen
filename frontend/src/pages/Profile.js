@@ -2,6 +2,7 @@ import React from 'react';
 import { http } from '../services/http';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
+import { User, Phone, GraduationCap, Star, Key, Edit3 } from 'lucide-react';
 
 export default function ProfilePage(){
   const [profile, setProfile] = React.useState(null);
@@ -15,13 +16,27 @@ export default function ProfilePage(){
   const [activityFilters, setActivityFilters] = React.useState({ semester: '', year: '', status: '' });
   const [loading, setLoading] = React.useState(false);
   const [activitiesLoading, setActivitiesLoading] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('basic');
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editData, setEditData] = React.useState({
+    dateOfBirth: '',
+    phone: '',
+    email: '',
+    emailPhu: '',
+    fatherPhone: '',
+    motherPhone: '',
+    homeAddress: '',
+    emergencyPhone: '',
+    fatherName: '',
+    motherName: ''
+  });
+  const [editLoading, setEditLoading] = React.useState(false);
+  const [editMessage, setEditMessage] = React.useState('');
 
   React.useEffect(function load(){
-    let mounted = true;
     http.get('/auth/profile').then(function(res){
-      if(!mounted) return; const p = res.data?.data || null; setProfile(p); setForm(function(prev){ return Object.assign({}, prev, { sdt: p?.sdt || '' }); });
+      const p = res.data?.data || null; setProfile(p); setForm(function(prev){ return Object.assign({}, prev, { sdt: p?.sdt || '' }); });
     }).catch(function(){});
-    return function(){ mounted = false; };
   }, []);
 
   // Function to load points with filters
@@ -76,18 +91,105 @@ export default function ProfilePage(){
 
   // Load activities and points
   React.useEffect(function loadData(){
-    let mounted = true;
-    
     // Load points without filters initially
     loadPoints('', '');
     
     // Load activities without filters initially
     loadActivities('', '', '');
-    
-    return function(){ mounted = false; };
   }, [loadPoints, loadActivities]);
 
   const role = (profile?.role || 'student').toLowerCase();
+
+  // Function to start editing
+  const startEdit = React.useCallback(function() {
+    if (profile) {
+      setEditData({
+        dateOfBirth: profile.ngaysinh ? new Date(profile.ngaysinh).toISOString().split('T')[0] : '',
+        phone: profile.sdt || '',
+        email: profile.email || '',
+        emailPhu: profile.email_phu || '',
+        fatherPhone: profile.sdt_cha || '',
+        motherPhone: profile.sdt_me || '',
+        homeAddress: profile.dia_chi_gia_dinh || '',
+        emergencyPhone: profile.sdt_khan_cap || '',
+        fatherName: profile.ten_cha || '',
+        motherName: profile.ten_me || ''
+      });
+      setIsEditing(true);
+      setEditMessage('');
+    }
+  }, [profile]);
+
+  // Function to cancel editing
+  const cancelEdit = React.useCallback(function() {
+    setIsEditing(false);
+    setEditData({
+      dateOfBirth: '',
+      phone: '',
+      email: '',
+      emailPhu: '',
+      fatherPhone: '',
+      motherPhone: '',
+      homeAddress: '',
+      emergencyPhone: '',
+      fatherName: '',
+      motherName: ''
+    });
+    setEditMessage('');
+  }, []);
+
+  // Function to save changes
+  const saveChanges = React.useCallback(function() {
+    setEditLoading(true);
+    setEditMessage('');
+    
+    // Map frontend field names to backend field names
+    const backendData = {
+      ngaysinh: editData.dateOfBirth,
+      sdt: editData.phone,
+      email: editData.email,
+      email_phu: editData.emailPhu,
+      sdt_cha: editData.fatherPhone,
+      sdt_me: editData.motherPhone,
+      dia_chi_gia_dinh: editData.homeAddress,
+      sdt_khan_cap: editData.emergencyPhone,
+      ten_cha: editData.fatherName,
+      ten_me: editData.motherName
+    };
+    
+    http.put('/auth/profile', backendData)
+      .then(function(res) {
+        setEditMessage('Cập nhật thông tin thành công!');
+        // Reload profile data from server
+        http.get('/auth/profile').then(function(profileRes) {
+          const updatedProfile = profileRes.data?.data || null;
+          setProfile(updatedProfile);
+          setForm(function(prev) {
+            return Object.assign({}, prev, { sdt: updatedProfile?.sdt || '' });
+          });
+        }).catch(function(err) {
+          console.error('Error reloading profile:', err);
+        });
+        setIsEditing(false);
+        setTimeout(function() {
+          setEditMessage('');
+        }, 3000);
+      })
+      .catch(function(err) {
+        setEditMessage('Có lỗi xảy ra khi cập nhật thông tin: ' + (err.response?.data?.message || err.message));
+      })
+      .finally(function() {
+        setEditLoading(false);
+      });
+  }, [editData]);
+
+  // Function to handle edit data changes
+  const handleEditChange = React.useCallback(function(e) {
+    const { name, value } = e.target;
+    setEditData(function(prev) {
+      return { ...prev, [name]: value };
+    });
+  }, []);
 
   function handleChange(e){
     var name = e.target.name; var value = e.target.value;
@@ -120,15 +222,6 @@ export default function ProfilePage(){
     loadActivities(newFilters.semester, newFilters.year, newFilters.status);
   }
 
-  async function saveInfo(e){
-    e.preventDefault(); setMsg(''); setErr('');
-    try {
-      await http.put('/auth/profile', { sdt: form.sdt });
-      setMsg('Cập nhật thông tin cá nhân thành công');
-    } catch (error) {
-      setErr(error?.response?.data?.message || 'Không thể cập nhật thông tin');
-    }
-  }
 
   async function changePassword(e){
     e.preventDefault(); setMsg(''); setErr('');
@@ -144,36 +237,81 @@ export default function ProfilePage(){
     }
   }
 
-  const content = React.createElement('div', { className: 'flex' }, [
-    React.createElement(Sidebar, { key: 'sb', role: role }),
-    React.createElement('main', { key: 'main', className: 'flex-1 p-6 space-y-6' }, [
-      React.createElement('h1', { key: 'h', className: 'text-2xl font-bold' }, 'Thông tin cá nhân'),
-      err ? React.createElement('div', { key: 'e', className: 'text-sm text-red-600' }, err) : null,
-      msg ? React.createElement('div', { key: 'm', className: 'text-sm text-green-600' }, msg) : null,
-      
-      // Info card
-      React.createElement('div', { key: 'card', className: 'bg-white rounded-xl border p-6 flex flex-col md:flex-row gap-6' }, [
-        React.createElement('div', { key: 'left', className: 'w-full md:w-64 flex flex-col items-center gap-4' }, [
-          React.createElement('div', { key: 'avt', className: 'w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-xl font-bold text-gray-700' }, (profile?.name || profile?.email || 'U').slice(0,1).toUpperCase()),
-          React.createElement('div', { key: 'nm', className: 'text-lg font-semibold' }, profile?.name || '—'),
-          React.createElement('div', { key: 'em', className: 'text-sm text-gray-500' }, profile?.email || '—'),
-          React.createElement('button', { 
-            key: 'pwdBtn', 
-            className: 'px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors',
-            onClick: function(){ setShowPasswordModal(true); }
-          }, 'Đổi mật khẩu')
+  const content = React.createElement('div', { key: 'profile-content' }, [
+      // Header Section
+      React.createElement('div', { key: 'header', className: 'flex items-center justify-between' }, [
+        React.createElement('div', { key: 'title-section', className: 'flex items-center gap-4' }, [
+          React.createElement('div', { key: 'icon', className: 'w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center' }, 
+            React.createElement(User, { className: 'w-6 h-6 text-blue-600' })
+          ),
+          React.createElement('div', { key: 'text' }, [
+            React.createElement('h1', { key: 'title', className: 'text-3xl font-bold text-gray-900' }, 'Thông tin cá nhân'),
+            React.createElement('p', { key: 'subtitle', className: 'text-gray-600 mt-1' }, 'Quản lý thông tin tài khoản của bạn')
+          ])
         ]),
-        React.createElement('div', { key: 'right', className: 'grid grid-cols-1 md:grid-cols-2 gap-4 flex-1' }, [
-          field('Họ và tên', profile?.name),
-          field('MSSV', profile?.maso),
-          field('Lớp', profile?.lop || '—'),
-          field('Khoa', profile?.khoa || '—'),
-          field('Email', profile?.email),
-          editable('Số điện thoại', 'sdt', form.sdt, handleChange)
+        React.createElement('div', { key: 'actions', className: 'flex gap-3' }, [
+          React.createElement('button', { 
+            key: 'password-btn', 
+            className: 'flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors',
+            onClick: function(){ setShowPasswordModal(true); }
+          }, [
+            React.createElement(Key, { key: 'icon', className: 'w-4 h-4' }),
+            'Đổi mật khẩu'
+          ]),
+          React.createElement('button', { 
+            key: 'edit-btn', 
+            className: 'flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors',
+            onClick: startEdit
+          }, [
+            React.createElement(Edit3, { key: 'icon', className: 'w-4 h-4' }),
+            'Chỉnh sửa'
+          ])
         ])
       ]),
 
-      // Points card
+      // Error/Success Messages
+      err ? React.createElement('div', { key: 'e', className: 'text-sm text-red-600' }, err) : null,
+      msg ? React.createElement('div', { key: 'm', className: 'text-sm text-green-600' }, msg) : null,
+
+      // Main Content Card
+      React.createElement('div', { key: 'main-card', className: 'bg-white rounded-xl border shadow-sm' }, [
+        // Profile Summary
+        React.createElement('div', { key: 'profile-summary', className: 'p-6 border-b' }, [
+          React.createElement('div', { key: 'profile-info', className: 'flex items-center gap-4' }, [
+            React.createElement('div', { key: 'avatar', className: 'w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-xl font-bold text-gray-700' }, 
+              (profile?.name || profile?.email || 'U').slice(0,1).toUpperCase()
+            ),
+            React.createElement('div', { key: 'details' }, [
+              React.createElement('h2', { key: 'name', className: 'text-xl font-semibold text-gray-900' }, profile?.name || '—'),
+              React.createElement('p', { key: 'id', className: 'text-gray-600' }, profile?.maso || '—'),
+              React.createElement('p', { key: 'class', className: 'text-sm text-gray-500' }, 
+                (profile?.lop || '—') + ' • ' + (profile?.khoa || '—')
+              )
+            ])
+          ])
+        ]),
+
+        // Tabs Navigation
+        React.createElement('div', { key: 'tabs', className: 'px-6 pt-4' }, [
+          React.createElement('div', { key: 'tab-list', className: 'flex space-x-8' }, [
+            tabButton('basic', 'Thông tin cơ bản', User, 'Họ tên, MSSV, lớp, khoa', activeTab, setActiveTab),
+            tabButton('contact', 'Liên hệ & Gia đình', Phone, 'SĐT, địa chỉ, thông tin gia đình', activeTab, setActiveTab),
+            tabButton('education', 'Học vấn', Star, 'THPT, điểm số, thông tin học tập', activeTab, setActiveTab)
+          ])
+        ]),
+
+        // Tab Content
+        React.createElement('div', { key: 'tab-content', className: 'p-6' }, [
+          activeTab === 'basic' ? renderBasicInfo() : null,
+          activeTab === 'contact' ? renderContactInfo() : null,
+          activeTab === 'education' ? renderEducationInfo() : null
+        ])
+      ])
+    ]);
+
+  // Points and Activities sections (kept outside tabs as requested)
+  const additionalSections = React.createElement('div', { key: 'additional-sections', className: 'space-y-6' }, [
+    // Points card
       React.createElement('div', { key: 'points', className: 'bg-white rounded-xl border p-6' }, [
         React.createElement('div', { key: 'header', className: 'flex flex-col md:flex-row md:items-center md:justify-between mb-4' }, [
           React.createElement('h2', { key: 't', className: 'text-lg font-semibold mb-2 md:mb-0' }, 'Điểm rèn luyện'),
@@ -351,12 +489,267 @@ export default function ProfilePage(){
             React.createElement('div', { key: 'empty', className: 'text-center text-gray-500 py-8' }, 'Chưa có hoạt động nào được đăng ký')
         )
       ])
-    ])
-  ]);
+    ]);
+
+  // Render functions for each tab
+  function renderBasicInfo() {
+    if (isEditing) {
+      return React.createElement('div', { key: 'basic-content', className: 'space-y-6' }, [
+        // Edit Message
+        editMessage ? React.createElement('div', { 
+          key: 'edit-message', 
+          className: editMessage.includes('thành công') ? 'p-4 bg-green-100 text-green-800 rounded-lg' : 'p-4 bg-red-100 text-red-800 rounded-lg' 
+        }, editMessage) : null,
+
+        // Basic Information Edit Form
+        React.createElement('div', { key: 'grid', className: 'grid grid-cols-1 md:grid-cols-2 gap-6' }, [
+          // Read-only fields
+          infoField('Họ và tên', profile?.name || '—'),
+          infoField('MSSV', profile?.maso || '—'),
+          infoField('Lớp', profile?.lop || '—'),
+          infoField('Niên khóa', profile?.nienkhoa || '—'),
+          infoField('Tên đăng nhập', profile?.maso || '—'),
+          infoField('Giới tính', profile?.gt === 'nam' ? 'Nam' : profile?.gt === 'nu' ? 'Nữ' : '—'),
+          infoField('Khoa', profile?.khoa || '—'),
+          infoField('CCCD/CMND', 'Chưa cập nhật', true),
+          React.createElement('div', { key: 'status', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Trạng thái tài khoản'),
+            React.createElement('span', { key: 'value', className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Hoạt động')
+          ]),
+          
+          // Editable fields
+          React.createElement('div', { key: 'dateOfBirth', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Ngày sinh *'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'date', 
+              name: 'dateOfBirth', 
+              value: editData.dateOfBirth, 
+              onChange: handleEditChange,
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ]),
+          React.createElement('div', { key: 'email', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Email *'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'email', 
+              name: 'email', 
+              value: editData.email, 
+              onChange: handleEditChange,
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ])
+        ]),
+
+        // Action buttons
+        React.createElement('div', { key: 'actions', className: 'flex gap-3' }, [
+          React.createElement('button', { 
+            key: 'save-btn', 
+            onClick: saveChanges, 
+            disabled: editLoading,
+            className: 'flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors' 
+          }, editLoading ? 'Đang lưu...' : 'Lưu thay đổi'),
+          React.createElement('button', { 
+            key: 'cancel-btn', 
+            onClick: cancelEdit, 
+            disabled: editLoading,
+            className: 'flex items-center gap-2 px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors' 
+          }, 'Hủy')
+        ])
+      ]);
+    }
+
+    return React.createElement('div', { key: 'basic-content', className: 'space-y-6' }, [
+      React.createElement('div', { key: 'grid', className: 'grid grid-cols-1 md:grid-cols-2 gap-6' }, [
+        infoField('Họ và tên', profile?.name || '—'),
+        infoField('MSSV', profile?.maso || '—'),
+        infoField('Ngày sinh', profile?.ngaysinh ? new Date(profile.ngaysinh).toLocaleDateString('vi-VN') : '—'),
+        infoField('Lớp', profile?.lop || '—'),
+        infoField('Niên khóa', profile?.nienkhoa || '—'),
+        infoField('Email', profile?.email || '—'),
+        infoField('Tên đăng nhập', profile?.maso || '—'),
+        infoField('Giới tính', profile?.gt === 'nam' ? 'Nam' : profile?.gt === 'nu' ? 'Nữ' : '—'),
+        infoField('Khoa', profile?.khoa || '—'),
+        infoField('CCCD/CMND', 'Chưa cập nhật', true),
+        React.createElement('div', { key: 'status', className: 'space-y-1' }, [
+          React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Trạng thái tài khoản'),
+          React.createElement('span', { key: 'value', className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800' }, 'Hoạt động')
+        ]),
+        infoField('Ngày tạo tài khoản', profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('vi-VN') : '—'),
+        infoField('Cập nhật lần cuối', profile?.updatedAt ? new Date(profile.updatedAt).toLocaleDateString('vi-VN') : '—')
+      ])
+    ]);
+  }
+
+  function renderContactInfo() {
+    if (isEditing) {
+      return React.createElement('div', { key: 'contact-content', className: 'space-y-6' }, [
+        // Edit Message
+        editMessage ? React.createElement('div', { 
+          key: 'edit-message', 
+          className: editMessage.includes('thành công') ? 'p-4 bg-green-100 text-green-800 rounded-lg' : 'p-4 bg-red-100 text-red-800 rounded-lg' 
+        }, editMessage) : null,
+
+        // Contact Information Edit Form
+        React.createElement('div', { key: 'grid', className: 'grid grid-cols-1 md:grid-cols-2 gap-6' }, [
+          // Editable fields
+          React.createElement('div', { key: 'phone', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Số điện thoại *'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'tel', 
+              name: 'phone', 
+              value: editData.phone, 
+              onChange: handleEditChange,
+              placeholder: 'Nhập số điện thoại',
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ]),
+          React.createElement('div', { key: 'emailPhu', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Email phụ'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'email', 
+              name: 'emailPhu', 
+              value: editData.emailPhu, 
+              onChange: handleEditChange,
+              placeholder: 'Nhập email phụ',
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ]),
+          React.createElement('div', { key: 'fatherPhone', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'SĐT cha'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'tel', 
+              name: 'fatherPhone', 
+              value: editData.fatherPhone, 
+              onChange: handleEditChange,
+              placeholder: 'Nhập SĐT cha',
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ]),
+          React.createElement('div', { key: 'motherPhone', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'SĐT mẹ'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'tel', 
+              name: 'motherPhone', 
+              value: editData.motherPhone, 
+              onChange: handleEditChange,
+              placeholder: 'Nhập SĐT mẹ',
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ]),
+          React.createElement('div', { key: 'homeAddress', className: 'space-y-1 md:col-span-2' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Địa chỉ gia đình'),
+            React.createElement('textarea', { 
+              key: 'input', 
+              name: 'homeAddress', 
+              value: editData.homeAddress, 
+              onChange: handleEditChange,
+              placeholder: 'Nhập địa chỉ gia đình',
+              rows: 3,
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ]),
+          React.createElement('div', { key: 'emergencyPhone', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'SĐT khẩn cấp'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'tel', 
+              name: 'emergencyPhone', 
+              value: editData.emergencyPhone, 
+              onChange: handleEditChange,
+              placeholder: 'Nhập SĐT khẩn cấp',
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ]),
+          React.createElement('div', { key: 'fatherName', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Tên cha'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'text', 
+              name: 'fatherName', 
+              value: editData.fatherName, 
+              onChange: handleEditChange,
+              placeholder: 'Nhập tên cha',
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ]),
+          React.createElement('div', { key: 'motherName', className: 'space-y-1' }, [
+            React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, 'Tên mẹ'),
+            React.createElement('input', { 
+              key: 'input', 
+              type: 'text', 
+              name: 'motherName', 
+              value: editData.motherName, 
+              onChange: handleEditChange,
+              placeholder: 'Nhập tên mẹ',
+              className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
+            })
+          ])
+        ]),
+
+        // Action buttons
+        React.createElement('div', { key: 'actions', className: 'flex gap-3' }, [
+          React.createElement('button', { 
+            key: 'save-btn', 
+            onClick: saveChanges, 
+            disabled: editLoading,
+            className: 'flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors' 
+          }, editLoading ? 'Đang lưu...' : 'Lưu thay đổi'),
+          React.createElement('button', { 
+            key: 'cancel-btn', 
+            onClick: cancelEdit, 
+            disabled: editLoading,
+            className: 'flex items-center gap-2 px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors' 
+          }, 'Hủy')
+        ])
+      ]);
+    }
+
+    return React.createElement('div', { key: 'contact-content', className: 'space-y-6' }, [
+      React.createElement('div', { key: 'grid', className: 'grid grid-cols-1 md:grid-cols-2 gap-6' }, [
+        infoField('Số điện thoại', profile?.sdt || '—'),
+        infoField('Email phụ', profile?.email_phu || '—'),
+        infoField('SĐT cha', profile?.sdt_cha || '—'),
+        infoField('SĐT mẹ', profile?.sdt_me || '—'),
+        infoField('Địa chỉ gia đình', profile?.dia_chi_gia_dinh || '—'),
+        infoField('SĐT khẩn cấp', profile?.sdt_khan_cap || '—'),
+        infoField('Tên cha', profile?.ten_cha || '—'),
+        infoField('Tên mẹ', profile?.ten_me || '—')
+      ])
+    ]);
+  }
+
+  function renderEducationInfo() {
+    return React.createElement('div', { key: 'education-content', className: 'space-y-8' }, [
+      // Education Information Section
+      React.createElement('div', { key: 'education-section', className: 'space-y-4' }, [
+        React.createElement('div', { key: 'header', className: 'flex items-center gap-2' }, [
+          React.createElement(GraduationCap, { key: 'icon', className: 'w-5 h-5 text-blue-600' }),
+          React.createElement('h3', { key: 'title', className: 'text-lg font-semibold text-gray-900' }, 'Thông tin học vấn')
+        ]),
+        React.createElement('div', { key: 'fields', className: 'space-y-4' }, [
+          infoField('Trường THPT', 'Chưa cập nhật', true),
+          infoField('Năm tốt nghiệp THPT', 'Chưa cập nhật', true),
+          infoField('Điểm TB THPT', 'Chưa cập nhật', true)
+        ])
+      ])
+    ]);
+  }
 
   return React.createElement('div', { className: 'min-h-screen bg-gray-50' }, [
     React.createElement(Header, { key: 'hdr' }),
-    content,
+    React.createElement('div', { key: 'main-wrapper', className: 'flex' }, [
+      React.createElement(Sidebar, { key: 'sb', role: role }),
+      React.createElement('main', { key: 'main', className: 'flex-1 p-6 space-y-6' }, [
+        content,
+        additionalSections
+      ])
+    ]),
     // Password change modal
     showPasswordModal ? React.createElement('div', { key: 'modal', className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50' }, [
       React.createElement('div', { key: 'modalContent', className: 'bg-white rounded-xl p-6 w-full max-w-md mx-4' }, [
@@ -391,19 +784,34 @@ export default function ProfilePage(){
   ]);
 }
 
-function field(label, value){
-  return React.createElement('div', { className: 'space-y-1' }, [
-    React.createElement('div', { key: 'l', className: 'text-sm text-gray-500' }, label),
-    React.createElement('input', { key: 'i', type: 'text', readOnly: true, value: value || '', className: 'w-full px-3 py-2 border rounded-lg bg-gray-50 text-gray-700' })
+
+function infoField(label, value, isPlaceholder = false) {
+  return React.createElement('div', { key: label, className: 'space-y-1' }, [
+    React.createElement('div', { key: 'label', className: 'text-sm text-gray-500' }, label),
+    React.createElement('div', { key: 'value', className: `text-sm ${isPlaceholder ? 'text-gray-500' : 'text-gray-900'}` }, value)
   ]);
 }
 
-function editable(label, name, value, onChange){
-  return React.createElement('div', { className: 'space-y-1' }, [
-    React.createElement('div', { key: 'l', className: 'text-sm text-gray-500' }, label),
-    React.createElement('input', { key: 'i', type: 'text', name: name, value: value || '', onChange: onChange, placeholder: 'Nhập ' + label.toLowerCase(), className: 'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent' })
+function tabButton(id, title, Icon, subtitle, activeTab, setActiveTab) {
+  const isActive = activeTab === id;
+  return React.createElement('button', {
+    key: id,
+    type: 'button',
+    onClick: function() { setActiveTab(id); },
+    className: `flex flex-col items-center gap-2 pb-4 border-b-2 transition-colors ${
+      isActive 
+        ? 'border-blue-600 text-blue-600' 
+        : 'border-transparent text-gray-500 hover:text-gray-700'
+    }`
+  }, [
+    React.createElement(Icon, { key: 'icon', className: `w-5 h-5 ${isActive ? 'text-blue-600' : 'text-gray-400'}` }),
+    React.createElement('div', { key: 'content', className: 'text-center' }, [
+      React.createElement('div', { key: 'title', className: 'text-sm font-medium' }, title),
+      React.createElement('div', { key: 'subtitle', className: 'text-xs text-gray-500 mt-1' }, subtitle)
+    ])
   ]);
 }
+
 
 function input(label, name, value, onChange, type){
   return React.createElement('div', { className: 'space-y-1' }, [
