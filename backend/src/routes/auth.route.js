@@ -229,7 +229,7 @@ router.post('/admin/reset', auth, requireAdmin, validate(adminResetPasswordSchem
 router.post('/change', auth, validate(changePasswordSchema), async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.validatedData;
-    const user = await AuthModel.findUserByMaso(req.user.maso);
+    const user = await AuthModel.timNguoiDungTheoMaso(req.user.maso);
     if (!user) {
       return sendResponse(res, ApiResponse.notFound('Không tìm thấy người dùng'));
     }
@@ -301,7 +301,7 @@ router.put('/contacts', auth, async (req, res) => {
 // Lấy thông tin cá nhân
 router.get('/profile', auth, async (req, res) => {
   try {
-    const user = await AuthModel.findUserByMaso(req.user.maso);
+    const user = await AuthModel.timNguoiDungTheoMaso(req.user.maso);
     if (!user) {
       return sendResponse(res, ApiResponse.notFound('Không tìm thấy người dùng'));
     }
@@ -352,6 +352,39 @@ router.get('/my-activities', auth, async (req, res) => {
     logError('Get activities error', error, { userId: req.user.sub });
     console.error('Error details:', error);
     sendResponse(res, ApiResponse.error(error.message || 'Lỗi server, vui lòng thử lại sau'));
+  }
+});
+
+// Xếp hạng trong lớp theo điểm rèn luyện (tổng hiện có)
+router.get('/class-ranking', auth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    // Lấy danh sách bạn cùng lớp
+    const classmates = await AuthModel.getClassmatesForUser(userId);
+    if (!Array.isArray(classmates) || classmates.length === 0) {
+      return sendResponse(res, ApiResponse.success({ ranking: [], currentUserRank: null }, 'Không có dữ liệu lớp'));
+    }
+
+    // Tính điểm cho từng bạn cùng lớp (dùng calculateStudentPoints)
+    const results = [];
+    for (const mate of classmates) {
+      try {
+        const pts = await AuthModel.calculateStudentPoints(mate.userId);
+        results.push({ userId: mate.userId, name: mate.name, mssv: mate.mssv, total: pts.total || 0 });
+      } catch (_) {
+        results.push({ userId: mate.userId, name: mate.name, mssv: mate.mssv, total: 0 });
+      }
+    }
+
+    // Sắp xếp giảm dần theo total
+    results.sort((a, b) => (b.total || 0) - (a.total || 0));
+    const currentIndex = results.findIndex(r => r.userId === userId);
+    const currentUserRank = currentIndex >= 0 ? currentIndex + 1 : null;
+
+    sendResponse(res, ApiResponse.success({ ranking: results, currentUserRank }, 'Xếp hạng lớp'));
+  } catch (error) {
+    logError('Get class ranking error', error, { userId: req.user.sub });
+    sendResponse(res, ApiResponse.error('Lỗi server, vui lòng thử lại sau'));
   }
 });
 

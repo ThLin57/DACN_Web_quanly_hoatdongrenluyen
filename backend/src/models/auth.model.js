@@ -467,6 +467,29 @@ class AuthModel {
     return result;
   }
 
+  // Lấy danh sách sinh viên cùng lớp với người dùng hiện tại
+  static async getClassmatesForUser(userId) {
+    // Tìm lớp của user
+    const user = await prisma.nguoiDung.findUnique({
+      where: { id: userId },
+      include: { sinh_vien: true }
+    });
+    if (!user || !user.sinh_vien) {
+      return [];
+    }
+    const lopId = user.sinh_vien.lop_id;
+    // Lấy tất cả sinh viên trong lớp đó và join người dùng
+    const svs = await prisma.sinhVien.findMany({
+      where: { lop_id: lopId },
+      include: { nguoi_dung: true }
+    });
+    return svs.map(sv => ({
+      userId: sv.nguoi_dung_id,
+      name: sv.nguoi_dung?.ho_ten || sv.nguoi_dung?.ten_dn,
+      mssv: sv.mssv
+    }));
+  }
+
   // Lấy danh sách khoa
   static async layDanhSachKhoa() {
     try {

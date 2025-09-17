@@ -76,3 +76,133 @@ router.get('/', auth, async (req, res) => {
 });
 
 module.exports = router;
+
+  // Chi tiết hoạt động theo ID
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const where = { id: String(id) };
+
+    // Nếu là sinh viên -> chỉ được xem hoạt động do lớp trưởng cùng lớp tạo
+    try {
+      const role = String(req.user?.role || '').toLowerCase();
+      if (role === 'student' || role === 'sinh_vien') {
+        const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub }, select: { lop_id: true } });
+        if (sv?.lop_id) {
+          where.nguoi_tao = { is: { sinh_vien: { lop_id: sv.lop_id } } };
+        }
+      }
+    } catch (_) {}
+
+    const hd = await prisma.hoatDong.findFirst({
+      where,
+      include: {
+        loai_hd: true,
+        nguoi_tao: {
+          select: { id: true, ten_dn: true, ho_ten: true, email: true, sinh_vien: { select: { lop_id: true } } }
+        }
+      }
+    });
+
+    if (!hd) {
+      return sendResponse(res, ApiResponse.notFound('Không tìm thấy hoạt động'));
+    }
+
+    const data = {
+      id: hd.id,
+      ten_hd: hd.ten_hd,
+      mo_ta: hd.mo_ta,
+      diem_rl: Number(hd.diem_rl || 0),
+      ngay_bd: hd.ngay_bd,
+      ngay_kt: hd.ngay_kt,
+      han_dk: hd.han_dk,
+      dia_diem: hd.dia_diem,
+      trang_thai: hd.trang_thai,
+      loai: hd.loai_hd?.ten_loai_hd || null,
+      nguoi_tao: {
+        id: hd.nguoi_tao?.id,
+        name: hd.nguoi_tao?.ho_ten || hd.nguoi_tao?.ten_dn,
+        email: hd.nguoi_tao?.email
+      }
+    };
+
+    sendResponse(res, ApiResponse.success(data, 'Chi tiết hoạt động'));
+  } catch (error) {
+    logError('Get activity detail error', error);
+    sendResponse(res, ApiResponse.error('Không thể lấy chi tiết hoạt động'));
+  }
+});
+
+// Trạng thái đăng ký hoạt động của sinh viên hiện tại
+router.get('/:id/registration', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Chỉ áp dụng cho sinh viên
+    const role = String(req.user?.role || '').toLowerCase();
+    if (!(role === 'student' || role === 'sinh_vien')) {
+      return sendResponse(res, ApiResponse.forbidden('Chỉ sinh viên mới xem trạng thái đăng ký'));
+    }
+    const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub }, select: { id: true, lop_id: true } });
+    if (!sv) {
+      return sendResponse(res, ApiResponse.error('Không tìm thấy thông tin sinh viên'));
+    }
+    // Đảm bảo hoạt động thuộc lớp phù hợp như rule danh sách
+    const hd = await prisma.hoatDong.findFirst({ where: { id: String(id), nguoi_tao: { sinh_vien: { lop_id: sv.lop_id } } }, select: { id: true } });
+    if (!hd) {
+      return sendResponse(res, ApiResponse.notFound('Không tìm thấy hoạt động'));
+    }
+    const reg = await prisma.dangKyHoatDong.findFirst({ where: { sv_id: sv.id, hd_id: String(id) } });
+    const data = reg ? { status: reg.trang_thai_dk, registeredAt: reg.ngay_dang_ky } : { status: null };
+    sendResponse(res, ApiResponse.success(data, 'Trạng thái đăng ký'));
+  } catch (error) {
+    logError('Get registration status error', error);
+    sendResponse(res, ApiResponse.error('Không thể lấy trạng thái đăng ký'));
+  }
+});
+
+// Đăng ký tham gia hoạt động (sinh viên)
+router.post('/:id/register', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const role = String(req.user?.role || '').toLowerCase();
+    if (!(role === 'student' || role === 'sinh_vien')) {
+      return sendResponse(res, ApiResponse.forbidden('Chỉ sinh viên mới được đăng ký'));
+    }
+    const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub }, select: { id: true, lop_id: true } });
+    if (!sv) {
+      return sendResponse(res, ApiResponse.error('Không tìm thấy thông tin sinh viên'));
+    }
+    // Đảm bảo hoạt động thuộc lớp hợp lệ
+    const hd = await prisma.hoatDong.findFirst({ where: { id: String(id), nguoi_tao: { sinh_vien: { lop_id: sv.lop_id } } }, select: { id: true, han_dk: true, trang_thai: true } });
+    if (!hd) {
+      return sendResponse(res, ApiResponse.notFound('Không tìm thấy hoạt động'));
+    }
+    // Kiểm tra hạn đăng ký và trạng thái hoạt động
+    const now = new Date();
+    if (hd.han_dk && now > hd.han_dk) {
+      return sendResponse(res, ApiResponse.error('Đã quá hạn đăng ký'));
+    }
+    if (!(hd.trang_thai === 'da_duyet' || hd.trang_thai === 'cho_duyet')) {
+      return sendResponse(res, ApiResponse.error('Hoạt động không mở đăng ký'));
+    }
+    // Nếu đã có đăng ký thì trả về hiện trạng
+    const existing = await prisma.dangKyHoatDong.findFirst({ where: { sv_id: sv.id, hd_id: String(id) } });
+    if (existing) {
+      return sendResponse(res, ApiResponse.success({ status: existing.trang_thai_dk, registeredAt: existing.ngay_dang_ky }, 'Đã đăng ký trước đó'));
+    }
+    // Tạo đăng ký mới với trạng thái chờ duyệt
+    const created = await prisma.dangKyHoatDong.create({
+      data: {
+        sv_id: sv.id,
+        hd_id: String(id),
+        trang_thai_dk: 'cho_duyet',
+        ly_do_dk: reason ? String(reason).slice(0, 1000) : null
+      }
+    });
+    sendResponse(res, ApiResponse.success({ status: created.trang_thai_dk, registeredAt: created.ngay_dang_ky }, 'Đăng ký thành công'));
+  } catch (error) {
+    logError('Register activity error', error);
+    sendResponse(res, ApiResponse.error('Không thể đăng ký hoạt động'));
+  }
+});
