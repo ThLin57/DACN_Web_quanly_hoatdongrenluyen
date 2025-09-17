@@ -17,7 +17,7 @@ if %errorlevel% neq 0 (
 echo ✅ Node.js is installed
 
 echo Checking npm...
-npm --version >nul 2>&1
+where npm >nul 2>&1
 if %errorlevel% neq 0 (
     echo ❌ npm is not installed. Please install npm first.
     pause

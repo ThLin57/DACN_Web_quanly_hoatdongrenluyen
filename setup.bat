@@ -38,7 +38,7 @@ echo ✅ Git is installed
 
 echo.
 echo [2/4] Setting up Backend...
-call setup-backend.bat
+call .\setup-backend.bat
 if %errorlevel% neq 0 (
     echo ❌ Backend setup failed
     pause
@@ -47,7 +47,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [3/4] Setting up Frontend...
-call setup-frontend.bat
+call .\setup-frontend.bat
 if %errorlevel% neq 0 (
     echo ❌ Frontend setup failed
     pause
