@@ -1,0 +1,40 @@
+{
+  "name": "dacn-web-quanly-hoatdongrenluyen",
+  "version": "1.0.0",
+  "description": "Hệ thống quản lý hoạt động rèn luyện cho sinh viên",
+  "main": "index.js",
+  "scripts": {
+    "setup": "node -e \"console.log('Please run setup.bat (Windows) or ./setup.sh (Linux/macOS) for automatic setup')\"",
+    "setup:backend": "cd backend && npm install && docker-compose up -d && npx prisma migrate dev && npm run seed",
+    "setup:frontend": "cd frontend && npm install",
+    "dev": "concurrently \"cd backend && npm start\" \"cd frontend && npm start\"",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "stop:db": "cd backend && docker-compose down",
+    "restart:db": "cd backend && docker-compose restart",
+    "studio": "cd backend && npx prisma studio",
+    "seed": "cd backend && npm run seed",
+    "migrate": "cd backend && npx prisma migrate dev"
+  },
+  "keywords": [
+    "education",
+    "student-management",
+    "activity-tracking",
+    "react",
+    "nodejs",
+    "postgresql"
+  ],
+  "author": "ThLin57",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ThLin57/DACN_Web_quanly_hoatdongrenluyen.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ThLin57/DACN_Web_quanly_hoatdongrenluyen/issues"
+  },
+  "homepage": "https://github.com/ThLin57/DACN_Web_quanly_hoatdongrenluyen#readme"
+}

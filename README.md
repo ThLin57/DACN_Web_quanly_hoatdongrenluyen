@@ -1,205 +1,166 @@
-# DACN - Đồ án cuối năm
+# 🚀 DACN - Web Quản Lý Hoạt Động Rèn Luyện
 
-Hệ thống quản lý hoạt động sinh viên với React Frontend và Node.js Backend.
+## 📋 Mô tả dự án
+Hệ thống quản lý hoạt động rèn luyện cho sinh viên với đầy đủ chức năng quản lý, đăng ký hoạt động, theo dõi điểm rèn luyện và thông báo.
 
-## 🚀 Tính năng chính
+## ⚡ Quick Start (Cài đặt nhanh)
 
-### Backend (Node.js + Express + Prisma + PostgreSQL)
-- ✅ Authentication với JWT
-- ✅ User Management (CRUD)
-- ✅ Role-based Authorization
-- ✅ Database với Prisma ORM
-- ✅ RESTful API với cấu trúc CSR
-- ✅ CORS configuration
-- ✅ Error handling
-- ✅ Security với Helmet & Rate Limiting
-- ✅ Logging với Winston
-- ✅ Input validation với Zod
-- ✅ Response compression
-- ✅ Health checks
+### 🪟 Windows:
+```bash
+# Tải về dự án
+git clone https://github.com/ThLin57/DACN_Web_quanly_hoatdongrenluyen.git
+cd DACN_Web_quanly_hoatdongrenluyen
 
-### Frontend (React + Tailwind CSS)
-- ✅ Modern UI với Tailwind CSS
-- ✅ Authentication system
-- ✅ Protected routes
-- ✅ Responsive design
-- ✅ Form validation
-- ✅ Toast notifications
-- ✅ Dashboard với thống kê
-- ✅ Custom React hooks
-- ✅ State management với Zustand
-- ✅ Utility functions
-- ✅ Component-based styling
+# Chạy setup tự động (1 lệnh duy nhất!)
+setup.bat
+```
+
+### 🐧 Linux/macOS:
+```bash
+# Tải về dự án
+git clone https://github.com/ThLin57/DACN_Web_quanly_hoatdongrenluyen.git
+cd DACN_Web_quanly_hoatdongrenluyen
+
+# Chạy setup tự động (1 lệnh duy nhất!)
+chmod +x setup.sh
+./setup.sh
+```
+
+## 🎯 Yêu cầu hệ thống
+
+### Bắt buộc:
+- **Node.js** (v16 trở lên) - [Download](https://nodejs.org/)
+- **Docker Desktop** - [Download](https://www.docker.com/products/docker-desktop)
+- **Git** - [Download](https://git-scm.com/)
+
+### Tùy chọn:
+- **Visual Studio Code** - [Download](https://code.visualstudio.com/)
 
 ## 📁 Cấu trúc dự án
 
 ```
-DACN/
-├── backend/                 # Node.js Backend (CSR Structure)
+DACN_Web_quanly_hoatdongrenluyen/
+├── backend/                 # Backend API (Node.js + Express)
+│   ├── src/                # Source code
 │   ├── prisma/             # Database schema & migrations
-│   ├── src/
-│   │   ├── config/         # Application configuration
-│   │   ├── controllers/    # API controllers
-│   │   ├── middlewares/    # Express middlewares
-│   │   ├── routes/         # API routes
-│   │   ├── utils/          # Utility functions
-│   │   └── index.js        # Server entry point
-│   ├── logs/               # Application logs
-│   ├── package.json
-│   ├── STRUCTURE.md        # Backend structure documentation
-│   └── LOGIN_GUIDE.md      # Login guide
-├── frontend/               # React Frontend (CSR Structure)
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── pages/          # Page components
-│   │   ├── services/       # API services
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── assets/         # Images, fonts, icons
-│   │   ├── styles/         # CSS/SCSS files
-│   │   ├── utils/          # Helper functions
-│   │   ├── context/        # React contexts
-│   │   ├── store/          # State management (Zustand)
-│   │   └── App.js          # Main app component
-│   ├── package.json
-│   ├── STRUCTURE.md        # Frontend structure documentation
-│   └── README.md           # Frontend documentation
-├── docker/                 # Docker configuration
+│   ├── docker-compose.yml  # PostgreSQL container
+│   └── package.json        # Backend dependencies
+├── frontend/               # Frontend (React.js)
+│   ├── src/                # Source code
+│   └── package.json        # Frontend dependencies
+├── setup.bat               # Windows setup script
+├── setup.sh                # Linux/macOS setup script
 └── README.md               # This file
 ```
 
-## 🛠️ Cài đặt và chạy
+## 🔧 Setup thủ công (nếu cần)
 
-### 1. Backend Setup
-
+### Backend:
 ```bash
 cd backend
 npm install
-```
-
-### 2. Database Setup
-
-```bash
-# Tạo database và chạy migrations
-npm run migrate
-
-# Chạy seed data
+docker-compose up -d
+npx prisma migrate dev
 npm run seed
+npm start
 ```
 
-### 3. Chạy Backend
-
-```bash
-npm run dev
-```
-
-Backend sẽ chạy trên `http://localhost:3001`
-
-### 4. Frontend Setup
-
+### Frontend:
 ```bash
 cd frontend
 npm install
-```
-
-### 5. Chạy Frontend
-
-```bash
 npm start
 ```
 
-Frontend sẽ chạy trên `http://localhost:3000`
+## 🌐 Truy cập ứng dụng
 
-## 🔐 Tài khoản mẫu
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
+- **Database**: PostgreSQL trên port 5433
 
-Sau khi chạy seed, có sẵn 3 tài khoản:
+## 🔑 Thông tin đăng nhập
 
-| Vai trò | Mã số | Mật khẩu |
-|---------|--------|----------|
-| Admin | `AD001` | `Admin@123` |
-| Giảng viên | `GV001` | `Teacher@123` |
-| Sinh viên | `SV210001` | `Student@123` |
+| Vai trò | Tên đăng nhập | Mật khẩu |
+|---------|---------------|----------|
+| Admin | admin | Admin@123 |
+| Giáo viên | gv001 | Teacher@123 |
+| Lớp trưởng | lt001 | Monitor@123 |
+| Sinh viên | 2021003 | Student@123 |
 
-## 📡 API Endpoints
+## 📊 Thông tin Database
 
-### Authentication
+- **Host**: localhost
+- **Port**: 5433
+- **Database**: Web_QuanLyDiemRenLuyen
+- **Username**: admin
+- **Password**: abc
+
+## 🛠️ Các lệnh hữu ích
+
+### Database:
+```bash
+# Xem database
+cd backend && npx prisma studio
+
+# Dừng database
+cd backend && docker-compose down
+
+# Khởi động lại database
+cd backend && docker-compose restart
+
+# Reset database (xóa tất cả dữ liệu)
+cd backend && docker-compose down -v && docker-compose up -d
+```
+
+### Development:
+```bash
+# Chạy backend
+cd backend && npm start
+
+# Chạy frontend
+cd frontend && npm start
+
+# Chạy cả hai (cần 2 terminal)
+npm run dev  # (nếu có script này)
+```
+
+## 🐛 Troubleshooting
+
+### Lỗi thường gặp:
+
+1. **Port đã được sử dụng**:
+   ```bash
+   # Kiểm tra port
+   netstat -an | findstr :3001
+   netstat -an | findstr :5433
+   ```
+
+2. **Docker không chạy**:
+   - Khởi động Docker Desktop
+   - Kiểm tra: `docker --version`
+
+3. **Database connection failed**:
+   ```bash
+   cd backend
+   docker-compose down
+   docker-compose up -d
+   ```
+
+4. **npm install failed**:
+   ```bash
+   npm cache clean --force
+   npm install
+   ```
+
+## 📚 API Documentation
+
+### Endpoints chính:
+- `GET /api/health` - Health check
 - `POST /api/auth/login` - Đăng nhập
-- `POST /api/auth/register` - Đăng ký
 - `GET /api/auth/profile` - Lấy thông tin profile
-- `POST /api/auth/logout` - Đăng xuất
-
-### Users
-- `GET /api/users` - Lấy danh sách users
-- `GET /api/users/:id` - Lấy thông tin user
-- `PUT /api/users/:id` - Cập nhật user
-- `DELETE /api/users/:id` - Xóa user
-
-### Health
-- `GET /api/health` - Kiểm tra trạng thái hệ thống
-
-## 🧪 Testing
-
-### Test API Backend
-```bash
-cd backend
-npm run dev
-```
-
-## 🔧 Công nghệ sử dụng
-
-### Backend
-- **Node.js** - Runtime environment
-- **Express.js** - Web framework
-- **Prisma** - Database ORM
-- **PostgreSQL** - Database
-- **JWT** - Authentication
-- **bcryptjs** - Password hashing
-- **CORS** - Cross-origin resource sharing
-
-### Frontend
-- **React 18** - UI library
-- **React Router DOM** - Routing
-- **Tailwind CSS** - CSS framework
-- **Axios** - HTTP client
-- **React Hook Form** - Form management
-- **React Hot Toast** - Notifications
-
-## 📝 Environment Variables
-
-### Backend (.env)
-```env
-DATABASE_URL="postgresql://username:password@localhost:5432/dacn_db"
-JWT_SECRET="your-secret-key"
-JWT_EXPIRES_IN="1d"
-PORT=3001
-```
-
-### Frontend (.env)
-```env
-REACT_APP_API_URL=http://localhost:3001/api
-```
-
-## 🚀 Deployment
-
-### Backend
-```bash
-cd backend
-npm run build
-npm start
-```
-
-### Frontend
-```bash
-cd frontend
-npm run build
-```
-
-## 📚 Tài liệu tham khảo
-
-- [Backend Documentation](./backend/LOGIN_GUIDE.md)
-- [Frontend Documentation](./frontend/README.md)
-- [Prisma Documentation](https://www.prisma.io/docs)
-- [React Documentation](https://react.dev)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+- `PUT /api/auth/profile` - Cập nhật profile
+- `GET /api/activities` - Danh sách hoạt động
+- `POST /api/activities/:id/register` - Đăng ký hoạt động
 
 ## 🤝 Đóng góp
 
@@ -211,4 +172,16 @@ npm run build
 
 ## 📄 License
 
-Dự án này được phát triển cho mục đích học tập.
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## 👥 Tác giả
+
+- **ThLin57** - [GitHub](https://github.com/ThLin57)
+
+## 📞 Liên hệ
+
+Nếu có vấn đề gì, hãy tạo issue trên GitHub repository.
+
+---
+
+**🎉 Chúc bạn coding vui vẻ!**
