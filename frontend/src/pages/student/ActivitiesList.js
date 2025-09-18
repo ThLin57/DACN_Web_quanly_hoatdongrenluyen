@@ -123,7 +123,8 @@ export default function ActivitiesList(){
         }
       })
       .catch(function(err){ 
-        const errorMsg = err?.response?.data?.message || err?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
+        const firstValidation = err?.response?.data?.errors?.[0]?.message;
+        const errorMsg = firstValidation || err?.response?.data?.message || err?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
         alert(errorMsg); 
       });
   }
@@ -132,16 +133,20 @@ export default function ActivitiesList(){
     setPagination(prev => ({ ...prev, page: newPage }));
   }
 
+  function parseDateSafe(d) {
+    try { return d ? new Date(d) : null; } catch(_) { return null; }
+  }
+
   function ActivityCard({ activity, mode = 'grid' }) {
-    const startDate = new Date(activity.ngay_bd);
-    const endDate = new Date(activity.ngay_kt);
+    const startDate = parseDateSafe(activity.ngay_bd) || new Date();
+    const endDate = parseDateSafe(activity.ngay_kt) || startDate;
     const now = new Date();
     const isUpcoming = startDate > now;
     const isOngoing = startDate <= now && endDate >= now;
     const isPast = endDate < now;
-    const deadline = activity.han_dk ? new Date(activity.han_dk) : startDate;
-    const isDeadlinePast = deadline && deadline.getTime && deadline.getTime() < now.getTime();
-    const isAfterStart = now.getTime() > startDate.getTime(); // Nếu không có hạn đăng ký, coi thời điểm bắt đầu là hạn cuối
+  const deadline = activity.han_dk ? parseDateSafe(activity.han_dk) : startDate;
+  const isDeadlinePast = !!(deadline && deadline.getTime && deadline.getTime() < now.getTime());
+  const isAfterStart = now.getTime() >= startDate.getTime(); // Nếu không có hạn đăng ký, coi thời điểm bắt đầu là hạn cuối
 
     const statusConfig = {
       'cho_duyet': { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', dot: 'bg-yellow-400', label: 'Chờ duyệt' },
@@ -160,7 +165,8 @@ export default function ActivitiesList(){
                           isOngoing ? 'text-green-600' : 
                           isUpcoming ? 'text-blue-600' : 'text-gray-500';
 
-    const canRegister = activity.trang_thai === 'da_duyet' && !isPast && !isDeadlinePast && !isAfterStart && !activity.is_registered;
+  // Chỉ cho đăng ký khi: đã duyệt, chưa bắt đầu, chưa quá hạn, chưa đăng ký
+  const canRegister = activity.trang_thai === 'da_duyet' && !isPast && !isDeadlinePast && !isAfterStart && !activity.is_registered;
     const activityType = activity.loai || activity.loai_hd?.ten_loai_hd || 'Chưa phân loại';
 
     if (mode === 'list') {
@@ -289,23 +295,21 @@ export default function ActivitiesList(){
       ]),
       
       React.createElement('div', { key: 'actions', className: 'flex gap-2 pt-4 border-t' }, [
-        React.createElement('button', { 
+        canRegister && React.createElement('button', { 
           key: 'register',
           onClick: () => handleRegister(activity.id, activity.ten_hd),
-          className: `flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
-            canRegister ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`,
-          disabled: !canRegister
+          className: 'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-green-600 text-white hover:bg-green-700'
         }, [
           React.createElement(UserPlus, { className: 'h-4 w-4' }),
-          activity.is_registered ? 'Đã đăng ký' : 'Đăng ký'
+          'Đăng ký'
         ]),
         React.createElement('button', { 
           key: 'detail',
           onClick: () => window.location.href = `/activities/${activity.id}`,
-          className: 'flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm'
+          className: `flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${canRegister ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-600 text-white hover:bg-blue-700 flex-1'}`
         }, [
-          React.createElement(Eye, { className: 'h-4 w-4' })
+          React.createElement(Eye, { className: 'h-4 w-4' }),
+          'Chi tiết'
         ])
       ])
     ]);

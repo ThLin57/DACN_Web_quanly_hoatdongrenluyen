@@ -89,7 +89,7 @@ export default function ManageActivity(){
     const { id, label, hint, error, rightAddon, children } = props;
     return React.createElement('div', { className: 'space-y-1 col-span-2 md:col-span-1' }, [
       React.createElement('label', { key: 'l', htmlFor: id, className: 'text-sm font-medium text-gray-700' }, label),
-      children,
+      React.createElement('div', { key: 'c' }, children),
       hint ? React.createElement('p', { key: 'h', className: 'text-xs text-gray-500' }, hint) : null,
       error ? React.createElement('p', { key: 'e', className: 'text-xs text-red-600' }, error) : null,
       rightAddon || null

@@ -55,7 +55,7 @@ router.get('/', auth, async (req, res) => {
     // Nếu là sinh viên -> hiển thị hoạt động đã được duyệt và đã kết thúc
     try {
       const role = String(req.user?.role || '').toLowerCase();
-      if (role === 'student' || role === 'sinh_vien') {
+      if (role === 'student' || role === 'sinh_vien' || role === 'lop_truong') {
         // Hiển thị hoạt động đã duyệt và đã kết thúc nếu user không chỉ định trangThai khác
         if (!trangThai) {
           where.trang_thai = { in: ['da_duyet', 'ket_thuc'] };
@@ -81,7 +81,8 @@ router.get('/', auth, async (req, res) => {
     // Check registration status for current user if they are a student
     let registrations = [];
     try {
-      if (req.user?.role?.toLowerCase() === 'sinh_vien' || req.user?.role?.toLowerCase() === 'student') {
+      const role = req.user?.role?.toLowerCase();
+      if (role === 'sinh_vien' || role === 'student' || role === 'lop_truong') {
         const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub } });
         if (sv) {
           const activityIds = list.map(hd => hd.id);
