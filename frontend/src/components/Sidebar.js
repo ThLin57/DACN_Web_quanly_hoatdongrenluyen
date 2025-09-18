@@ -6,8 +6,10 @@ function MenuItem(props) {
   const { to, icon, label, badge, active } = props;
   return React.createElement(
     Link,
-    { to: to, className: 'flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-100 ' + (active ? 'bg-gray-100 text-gray-900' : 'text-gray-700') },
+    { to: to, className: 'group relative flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-100 ' + (active ? 'bg-gray-100 text-gray-900' : 'text-gray-700') },
     [
+      // Indicator bar (active/hover)
+      React.createElement('span', { key: 'i', className: 'absolute left-0 top-0 h-full w-1 rounded-r transition-all duration-200 ' + (active ? 'bg-purple-600 opacity-100' : 'bg-purple-600 opacity-0 group-hover:opacity-50') }),
       React.createElement('div', { key: 'l', className: 'flex items-center gap-3' }, [
         icon || React.createElement('span', { key: 'dot', className: 'w-2 h-2 rounded-full bg-gray-300' }),
         React.createElement('span', { key: 't', className: 'text-sm font-medium' }, label)
@@ -43,6 +45,18 @@ export default function Sidebar(props) {
   const role = (roleProp || storeRole || '').toString().toLowerCase(); // 'student' | 'monitor' | 'teacher' | 'admin'
   const location = useLocation();
   const path = location.pathname;
+  
+  // Debug info for troubleshooting
+  console.log('Sidebar Debug:', { role, storeRole, roleProp, path });
+  
+  // State for monitor mode toggle
+  const [monitorMode, setMonitorMode] = React.useState(
+    path.startsWith('/class/') || path === '/monitor' || localStorage.getItem('monitorMode') === 'true'
+  );
+
+  React.useEffect(() => {
+    localStorage.setItem('monitorMode', monitorMode.toString());
+  }, [monitorMode]);
 
   function isActive(href){ return path === href; }
 
@@ -54,16 +68,28 @@ export default function Sidebar(props) {
     React.createElement(MenuItem, { key: 'qr-scanner', to: '/qr-scanner', label: 'QR Điểm danh', active: isActive('/qr-scanner') }),
   ];
 
-  const monitorMenu = studentMenu.concat([
-    React.createElement(Group, { key: 'class-mgmt', title: 'Quản lý Lớp', defaultOpen: true }, [
+  // Thêm nút chuyển đổi chế độ cho lớp trưởng
+  const [isPersonalMode, setIsPersonalMode] = React.useState(() => {
+    // Nếu đang ở trang quản lý thì false, còn lại là true
+    return !path.startsWith('/class/') && !path.startsWith('/activities/create') && !path.startsWith('/qr-management');
+  });
+
+  // Removed switch-mode navigation button per request
+
+  const monitorMenu = [
+    // Menu sinh viên
+    ...studentMenu,
+    // Nhóm quản lý lớp
+    React.createElement(Group, { key: 'class-mgmt', title: 'Quản lý Lớp', defaultOpen: !isPersonalMode }, [
       React.createElement(MenuItem, { key: 'create-activity', to: '/activities/create', label: 'Tạo Hoạt động', active: isActive('/activities/create') }),
       React.createElement(MenuItem, { key: 'qr-management', to: '/qr-management', label: 'Quản lý QR', active: isActive('/qr-management') }),
       React.createElement(MenuItem, { key: 'cm-1', to: '/class/activities', label: 'Hoạt động lớp', active: isActive('/class/activities') }),
       React.createElement(MenuItem, { key: 'cm-2', to: '/class/approvals', label: 'Phê duyệt đăng ký', active: isActive('/class/approvals') }),
       React.createElement(MenuItem, { key: 'cm-3', to: '/class/students', label: 'Quản lý Sinh viên', active: isActive('/class/students') }),
       React.createElement(MenuItem, { key: 'cm-4', to: '/class/reports', label: 'Báo cáo & Thống kê', active: isActive('/class/reports') }),
+      React.createElement(MenuItem, { key: 'cm-5', to: '/class/notifications', label: 'Thông báo', active: isActive('/class/notifications') }),
     ])
-  ]);
+  ];
 
   const teacherMenu = monitorMenu.concat([
     React.createElement(MenuItem, { key: 'qr-management-teacher', to: '/qr-management', label: 'Quản lý QR Điểm danh', active: isActive('/qr-management') }),
@@ -86,9 +112,14 @@ export default function Sidebar(props) {
   ];
 
   let items = studentMenu;
-  if (role === 'monitor' || role === 'lop_truong') items = monitorMenu;
-  if (role === 'teacher' || role === 'giang_vien') items = teacherMenu;
-  if (role === 'admin' || role === 'ADMIN') items = adminMenu;
+  // Check for monitor role with various possible values (case-insensitive)
+  const roleUpper = role.toUpperCase();
+  // Show monitor menu only for monitor roles or explicit /monitor path
+  if (roleUpper === 'MONITOR' || roleUpper === 'LOP_TRUONG' || roleUpper === 'CLASS_MONITOR' || path === '/monitor' || path.startsWith('/monitor')) {
+    items = monitorMenu;
+  }
+  if (roleUpper === 'TEACHER' || roleUpper === 'GIANG_VIEN') items = teacherMenu;
+  if (roleUpper === 'ADMIN') items = adminMenu;
 
   return React.createElement(
     'aside',

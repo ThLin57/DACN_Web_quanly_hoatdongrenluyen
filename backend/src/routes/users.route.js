@@ -1,17 +1,26 @@
 const { Router } = require('express');
-const controller = require('../controllers/users.controller');
-const { auth, requireAdmin } = require('../middlewares/auth');
-const { validate, updateUserSchema } = require('../utils/validation');
+const usersController = require('../controllers/users.controller');
+const { auth: authMiddleware } = require('../middlewares/auth');
+const { UserPolicies } = require('../middlewares/rbac');
 
 const router = Router();
 
 // Public routes
-router.get('/', controller.list);
+// U2: Đăng ký tài khoản
+router.post('/register', usersController.register);
 
-// Protected routes - chỉ admin mới có quyền quản lý users
-router.get('/:id', auth, requireAdmin, controller.getById);
-router.put('/:id', auth, requireAdmin, validate(updateUserSchema), controller.update);
-router.delete('/:id', auth, requireAdmin, controller.delete);
-router.post('/', auth, requireAdmin, controller.create);
+// Protected routes (cần đăng nhập)
+router.use(authMiddleware);
+
+// U5: Quản lý thông tin cá nhân
+router.get('/profile', usersController.getProfile);
+router.put('/profile', usersController.updateProfile);
+router.put('/change-password', usersController.changePassword);
+
+// U21: Quản lý tài khoản người dùng (Admin only)
+router.get('/', UserPolicies.canView, usersController.list);
+router.get('/:id', UserPolicies.canView, usersController.getById);
+router.put('/:id/status', UserPolicies.canUpdate, usersController.updateStatus);
+router.delete('/:id', UserPolicies.canDelete, usersController.delete);
 
 module.exports = router;

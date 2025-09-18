@@ -266,7 +266,7 @@ router.post('/admin/reset', auth, requireAdmin, validate(adminResetPasswordSchem
 router.post('/change', auth, validate(changePasswordSchema), async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.validatedData;
-    const user = await AuthModel.findUserByMaso(req.user.maso);
+  const user = await AuthModel.timNguoiDungTheoMaso(req.user.maso);
     if (!user) {
       return sendResponse(res, 404, ApiResponse.notFound('Không tìm thấy người dùng'));
     }
@@ -326,7 +326,7 @@ router.put('/contacts', auth, async (req, res) => {
     }
 
     // Trả lại profile mới với contacts đã cập nhật
-    const user = await AuthModel.findUserByMaso(req.user.maso);
+  const user = await AuthModel.timNguoiDungTheoMaso(req.user.maso);
     const dto = AuthModel.toUserDTO(user);
     sendResponse(res, 200, ApiResponse.success(dto, 'Cập nhật thông tin liên hệ thành công'));
   } catch (error) {
@@ -338,7 +338,7 @@ router.put('/contacts', auth, async (req, res) => {
 // Lấy thông tin cá nhân
 router.get('/profile', auth, async (req, res) => {
   try {
-    const user = await AuthModel.findUserByMaso(req.user.maso);
+  const user = await AuthModel.timNguoiDungTheoMaso(req.user.maso);
     if (!user) {
       return sendResponse(res, 404, ApiResponse.notFound('Không tìm thấy người dùng'));
     }
@@ -392,9 +392,17 @@ router.get('/my-activities', auth, async (req, res) => {
   }
 });
 
-// Đăng xuất
+// Đăng xuất (U4)
 router.post('/logout', auth, async (req, res) => {
   try {
+    // Cập nhật thời gian đăng xuất (nếu cần track)
+    await prisma.nguoiDung.update({
+      where: { id: req.user.sub },
+      data: { 
+        ngay_cap_nhat: new Date()
+      }
+    });
+
     logInfo('User logged out', { userId: req.user.sub, maso: req.user.maso, ip: req.ip });
     sendResponse(res, 200, ApiResponse.success(null, 'Đăng xuất thành công'));
   } catch (error) {

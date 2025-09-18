@@ -18,22 +18,28 @@ export default function ActivityDetail(){
   if (err) return React.createElement('div', { className: 'text-red-600' }, err);
   if (!data) return React.createElement('div', null, 'Không có dữ liệu');
 
-  const canRegister = true; // TODO: compute based on dates and registration status
+  const start = data?.ngay_bd ? new Date(data.ngay_bd) : null;
+  const end = data?.ngay_kt ? new Date(data.ngay_kt) : null;
+  const now = new Date();
+  const withinTime = start && end ? (start <= now && end >= now) || start > now : true;
+  const canRegister = data?.trang_thai === 'da_duyet' && withinTime && !data?.is_registered;
 
   return React.createElement('div', { className: 'bg-white border rounded-xl p-6 space-y-4' }, [
     React.createElement('div', { key: 'title', className: 'text-2xl font-bold' }, data.ten_hd || data.name || 'Hoạt động'),
     data.hinh_anh ? React.createElement('img', { key: 'img', src: data.hinh_anh[0], alt: 'Poster', className: 'w-full max-h-64 object-cover rounded-lg' }) : null,
     React.createElement('div', { key: 'desc', className: 'text-gray-700' }, data.mo_ta || '—'),
     React.createElement('div', { key: 'meta', className: 'grid grid-cols-1 md:grid-cols-3 gap-3' }, [
-      meta('Loại hoạt động', data.loai_hd?.ten_loai_hd || '—'),
+      meta('Loại hoạt động', data.loai || data.loai_hd?.ten_loai_hd || '—'),
       meta('Điểm rèn luyện', String(data.diem_rl || 0)),
       meta('Thời gian', data.ngay_bd || '—'),
       meta('Địa điểm', data.dia_diem || '—'),
       meta('SL tối đa', String(data.sl_toi_da || 0)),
     ]),
-    React.createElement('div', { key: 'act' },
-      React.createElement('button', { className: 'px-4 py-2 rounded-lg ' + (canRegister ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600 cursor-not-allowed'), disabled: !canRegister }, canRegister ? 'Đăng ký' : 'Hết hạn đăng ký')
-    )
+    React.createElement('div', { key: 'act' }, [
+      data?.is_registered
+        ? React.createElement('span', { className: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200' }, data.registration_status === 'da_duyet' ? 'Đã đăng ký (Đã duyệt)' : 'Đã đăng ký (Chờ duyệt)')
+        : React.createElement('span', { className: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200' }, canRegister ? 'Chưa đăng ký' : 'Không thể đăng ký')
+    ])
   ]);
 }
 

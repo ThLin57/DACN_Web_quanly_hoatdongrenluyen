@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Scores API</title>
+</head>
+<body>
+    <h1>Test Direct API Call</h1>
+    <button onclick="testScoresAPI()">Test Scores API</button>
+    <pre id="result"></pre>
+
+    <script>
+    async function testScoresAPI() {
+        try {
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            if (!token) {
+                document.getElementById('result').textContent = 'No token found. Please login first.';
+                return;
+            }
+
+            const response = await fetch('/api/dashboard/scores/detailed?hoc_ky=1&nam_hoc=2025-2026&view_by=hoc_ky', {
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+            document.getElementById('result').textContent = 'Error: ' + error.message;
+        }
+    }
+    </script>
+</body>
+</html>

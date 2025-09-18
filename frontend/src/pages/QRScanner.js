@@ -45,15 +45,35 @@ export default function QRScanner() {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        setIsScanning(true);
         
-        // Start scanning loop
-        intervalRef.current = setInterval(scanQRCode, 100);
+        // Wait for video to be ready before starting scanning
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play()
+            .then(() => {
+              setIsScanning(true);
+              
+              // Add a small delay to ensure video is fully ready
+              setTimeout(() => {
+                intervalRef.current = setInterval(scanQRCode, 100);
+              }, 500);
+            })
+            .catch((playError) => {
+              console.error('Video play error:', playError);
+              setError('Không thể phát video từ camera');
+              stopCamera();
+            });
+        };
+        
+        videoRef.current.onerror = (videoError) => {
+          console.error('Video error:', videoError);
+          setError('Lỗi video từ camera');
+          stopCamera();
+        };
       }
     } catch (err) {
       setError('Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.');
       console.error('Camera error:', err);
+      stopCamera();
     }
   };
 
@@ -76,19 +96,45 @@ export default function QRScanner() {
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
     
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    // Check if video is ready and has valid dimensions
+    if (!video.videoWidth || !video.videoHeight || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      return;
+    }
 
-    if (code) {
-      stopCamera();
-      processQRCode(code.data);
+    // Validate video dimensions are positive numbers
+    if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+      return;
+    }
+
+    try {
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
+      // Set canvas dimensions safely
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw video frame to canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Get image data with validation
+      if (canvas.width <= 0 || canvas.height <= 0) return;
+      
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      
+      // Validate image data
+      if (!imageData || !imageData.data || imageData.data.length === 0) return;
+      
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+      if (code) {
+        stopCamera();
+        processQRCode(code.data);
+      }
+    } catch (error) {
+      console.warn('QR scanning error:', error.message);
+      // Don't show error to user as this is expected during video initialization
     }
   };
 
@@ -126,29 +172,80 @@ export default function QRScanner() {
     const file = event.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current;
-        const context = canvas.getContext('2d');
-        
-        canvas.width = img.width;
-        canvas.height = img.height;
-        context.drawImage(img, 0, 0);
-        
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-        
-        if (code) {
-          processQRCode(code.data);
-        } else {
-          setError('Không tìm thấy mã QR trong ảnh');
+    try {
+      setError('');
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = canvasRef.current;
+              if (!canvas) {
+                setError('Canvas không khả dụng');
+                return;
+              }
+              
+              const context = canvas.getContext('2d');
+              if (!context) {
+                setError('Không thể tạo canvas context');
+                return;
+              }
+              
+              // Validate image dimensions
+              if (img.width <= 0 || img.height <= 0) {
+                setError('Ảnh có kích thước không hợp lệ');
+                return;
+              }
+              
+              canvas.width = img.width;
+              canvas.height = img.height;
+              context.drawImage(img, 0, 0);
+              
+              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+              
+              // Validate image data
+              if (!imageData || !imageData.data || imageData.data.length === 0) {
+                setError('Không thể đọc dữ liệu ảnh');
+                return;
+              }
+              
+              const code = jsQR(imageData.data, imageData.width, imageData.height);
+              
+              if (code) {
+                processQRCode(code.data);
+              } else {
+                setError('Không tìm thấy mã QR trong ảnh');
+              }
+            } catch (error) {
+              setError(error.message || 'Lỗi khi xử lý ảnh');
+            }
+          };
+          
+          img.onerror = () => {
+            setError('Không thể tải ảnh. Vui lòng chọn file ảnh hợp lệ.');
+          };
+          
+          img.src = e.target.result;
+        } catch (error) {
+          setError('Lỗi khi đọc dữ liệu ảnh');
         }
       };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+      
+      reader.onerror = () => {
+        setError('Lỗi khi đọc file ảnh');
+      };
+      
+      reader.readAsDataURL(file);
+    } catch (error) {
+      setError('Lỗi khi xử lý file ảnh');
+    }
+    
+    // Reset file input
+    if (event.target) {
+      event.target.value = '';
+    }
   };
 
   // Reset scanner

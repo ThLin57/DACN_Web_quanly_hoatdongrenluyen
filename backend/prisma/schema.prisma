@@ -147,6 +147,34 @@ model SinhVien {
   lop_id        String    @db.Uuid
   dia_chi       String?   @db.Text
   sdt           String?   @db.VarChar(10)
+  
+  // Thông tin bổ sung cá nhân
+  avatar_url    String?   @db.Text  // URL ảnh đại diện
+  sdt_khan_cap  String?   @db.VarChar(15)  // Số điện thoại khẩn cấp
+  email_phu     String?   @db.VarChar(100) // Email phụ
+  so_thich      String?   @db.Text  // Sở thích
+  ky_nang       String?   @db.Text  // Kỹ năng
+  muc_tieu      String?   @db.Text  // Mục tiêu học tập/nghề nghiệp
+  
+  // Thông tin gia đình
+  ten_cha       String?   @db.VarChar(100)
+  sdt_cha       String?   @db.VarChar(15)
+  ten_me        String?   @db.VarChar(100)
+  sdt_me        String?   @db.VarChar(15)
+  dia_chi_gia_dinh String? @db.Text
+  
+  // Thông tin học vấn
+  truong_thpt   String?   @db.VarChar(200)  // Trường THPT
+  nam_tot_nghiep_thpt Int? // Năm tốt nghiệp THPT
+  diem_thpt     Decimal?  @db.Decimal(4, 2) // Điểm trung bình THPT
+  
+  // Cài đặt cá nhân
+  ngon_ngu      String?   @default("vi") @db.VarChar(5) // Ngôn ngữ ưa thích
+  mui_gio       String?   @default("Asia/Ho_Chi_Minh") @db.VarChar(50) // Múi giờ
+  thong_bao_email Boolean? @default(true)  // Nhận thông báo qua email
+  thong_bao_sdt Boolean?  @default(false) // Nhận thông báo qua SMS
+  
+  ngay_cap_nhat DateTime  @default(now()) @updatedAt @db.Timestamp(6)
 
   nguoi_dung NguoiDung @relation(fields: [nguoi_dung_id], references: [id])
   lop        Lop       @relation("SinhVienLop", fields: [lop_id], references: [id])

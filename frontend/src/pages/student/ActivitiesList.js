@@ -1,41 +1,89 @@
 import React from 'react';
-import { Search, Filter, Calendar, MapPin, Users, Clock, Award, Eye, UserPlus, ChevronRight, Grid3X3, List, SlidersHorizontal } from 'lucide-react';
+import { Search, Filter, Calendar, MapPin, Users, Clock, Award, Eye, UserPlus, ChevronRight, Grid3X3, List, SlidersHorizontal, ChevronLeft } from 'lucide-react';
 import http from '../../services/http';
 
 export default function ActivitiesList(){
   const [query, setQuery] = React.useState('');
   const [filters, setFilters] = React.useState({ type: '', status: '', from: '', to: '' });
   const [items, setItems] = React.useState([]);
+  const [activityTypes, setActivityTypes] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [viewMode, setViewMode] = React.useState('grid'); // 'grid' or 'list'
   const [showFilters, setShowFilters] = React.useState(false);
+  const [pagination, setPagination] = React.useState({ page: 1, limit: 12, total: 0 });
+
+  React.useEffect(function(){
+    loadActivities();
+    loadActivityTypes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   React.useEffect(function(){
     loadActivities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pagination.page]);
+
+  function loadActivityTypes() {
+    http.get('/activities/types/list')
+      .then(function(res){
+        if (res.data?.success && res.data?.data) {
+          setActivityTypes(res.data.data);
+        }
+      })
+      .catch(function(err){
+        console.warn('Could not load activity types:', err);
+      });
+  }
 
   function loadActivities() {
     setLoading(true); 
     setError('');
-    http.get('/activities', { 
-      params: { 
-        q: query, 
-        type: filters.type, 
-        status: filters.status, 
-        from: filters.from, 
-        to: filters.to 
-      } 
-    })
+    
+    const params = { 
+      q: query || undefined, 
+      type: filters.type || undefined, 
+      status: filters.status || undefined, 
+      from: filters.from || undefined, 
+      to: filters.to || undefined,
+      page: pagination.page,
+      limit: pagination.limit,
+      sort: 'ngay_bd',
+      order: 'asc'
+    };
+
+    // Remove undefined values
+    Object.keys(params).forEach(key => {
+      if (params[key] === undefined || params[key] === '') {
+        delete params[key];
+      }
+    });
+
+    console.log('Loading activities with params:', params); // Debug log
+
+    http.get('/activities', { params })
       .then(function(res){
-        var d = res.data?.data;
-        var arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
-        setItems(arr);
+        console.log('Activities API response:', res.data); // Debug log
+        const responseData = res.data?.data;
+        if (responseData && Array.isArray(responseData.items)) {
+          console.log('Found activities:', responseData.items.length); // Debug log
+          setItems(responseData.items);
+          setPagination(prev => ({
+            ...prev,
+            total: responseData.total || 0
+          }));
+        } else {
+          // Fallback for different response structure
+          const items = Array.isArray(responseData) ? responseData : [];
+          console.log('Using fallback, found activities:', items.length); // Debug log
+          setItems(items);
+          setPagination(prev => ({ ...prev, total: items.length }));
+        }
       })
       .catch(function(err){ 
+        console.error('Load activities error:', err);
         setItems([]); 
-        setError(err?.message || 'Lỗi tải dữ liệu'); 
+        setError(err?.response?.data?.message || err?.message || 'Lỗi tải dữ liệu hoạt động'); 
       })
       .finally(function(){ 
         setLoading(false); 
@@ -43,29 +91,45 @@ export default function ActivitiesList(){
   }
 
   function onSearch(e){
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page when searching
     loadActivities();
+  }
+
+  function onFilterChange(newFilters) {
+    setFilters(newFilters);
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page when filtering
   }
 
   function handleRegister(activityId, activityName) {
     if (!window.confirm(`Bạn có chắc muốn đăng ký tham gia "${activityName}"?`)) return;
     
     http.post(`/activities/${activityId}/register`)
-      .then(function(){
-        alert('Đã gửi đăng ký thành công! Vui lòng chờ phê duyệt.');
-        loadActivities(); // Reload to update registration status
+      .then(function(res){
+        if (res.data?.success) {
+          alert('Đã gửi đăng ký thành công! Vui lòng chờ phê duyệt.');
+          loadActivities(); // Reload to update registration status
+        } else {
+          alert(res.data?.message || 'Đăng ký thành công nhưng chưa rõ trạng thái.');
+        }
       })
       .catch(function(err){ 
-        alert(err?.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.'); 
+        const errorMsg = err?.response?.data?.message || err?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
+        alert(errorMsg); 
       });
+  }
+
+  function handlePageChange(newPage) {
+    setPagination(prev => ({ ...prev, page: newPage }));
   }
 
   function ActivityCard({ activity, mode = 'grid' }) {
     const startDate = new Date(activity.ngay_bd);
     const endDate = new Date(activity.ngay_kt);
-    const isUpcoming = startDate > new Date();
-    const isOngoing = startDate <= new Date() && endDate >= new Date();
-    const isPast = endDate < new Date();
+    const now = new Date();
+    const isUpcoming = startDate > now;
+    const isOngoing = startDate <= now && endDate >= now;
+    const isPast = endDate < now;
 
     const statusConfig = {
       'cho_duyet': { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', dot: 'bg-yellow-400', label: 'Chờ duyệt' },
@@ -84,6 +148,9 @@ export default function ActivitiesList(){
                           isOngoing ? 'text-green-600' : 
                           isUpcoming ? 'text-blue-600' : 'text-gray-500';
 
+    const canRegister = activity.trang_thai === 'da_duyet' && !isPast && !activity.is_registered;
+    const activityType = activity.loai || activity.loai_hd?.ten_loai_hd || 'Chưa phân loại';
+
     if (mode === 'list') {
       return React.createElement('div', {
         className: 'bg-white border rounded-lg p-6 hover:shadow-md transition-all duration-200'
@@ -97,7 +164,7 @@ export default function ActivitiesList(){
                 React.createElement('div', { key: 'meta', className: 'flex items-center gap-3 text-sm text-gray-600' }, [
                   React.createElement('span', { key: 'type', className: 'flex items-center' }, [
                     React.createElement('div', { className: `w-2 h-2 rounded-full ${status.dot} mr-2` }),
-                    activity.loai || activity.loai_hd?.ten_loai_hd || 'Chưa phân loại'
+                    activityType
                   ]),
                   React.createElement('span', { key: 'time-status', className: timeStatusColor }, timeStatus)
                 ])
@@ -134,11 +201,13 @@ export default function ActivitiesList(){
             React.createElement('button', { 
               key: 'register',
               onClick: () => handleRegister(activity.id, activity.ten_hd),
-              className: 'flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium',
-              disabled: isPast || activity.trang_thai === 'tu_choi'
+              className: `flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                canRegister ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`,
+              disabled: !canRegister
             }, [
               React.createElement(UserPlus, { className: 'h-4 w-4' }),
-              'Đăng ký'
+              activity.is_registered ? 'Đã đăng ký' : 'Đăng ký'
             ]),
             React.createElement('button', { 
               key: 'detail',
@@ -181,7 +250,7 @@ export default function ActivitiesList(){
         React.createElement('div', { key: 'meta', className: 'space-y-2 mb-4' }, [
           React.createElement('div', { key: 'type', className: 'flex items-center text-sm text-gray-600' }, [
             React.createElement(Calendar, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-            React.createElement('span', {}, activity.loai || activity.loai_hd?.ten_loai_hd || 'Chưa phân loại')
+            React.createElement('span', {}, activityType)
           ]),
           React.createElement('div', { key: 'time', className: 'flex items-center text-sm text-gray-600' }, [
             React.createElement(Clock, { className: 'h-4 w-4 mr-2 text-gray-400' }),
@@ -203,11 +272,13 @@ export default function ActivitiesList(){
         React.createElement('button', { 
           key: 'register',
           onClick: () => handleRegister(activity.id, activity.ten_hd),
-          className: 'flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium',
-          disabled: isPast || activity.trang_thai === 'tu_choi'
+          className: `flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+            canRegister ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`,
+          disabled: !canRegister
         }, [
           React.createElement(UserPlus, { className: 'h-4 w-4' }),
-          'Đăng ký'
+          activity.is_registered ? 'Đã đăng ký' : 'Đăng ký'
         ]),
         React.createElement('button', { 
           key: 'detail',
@@ -232,14 +303,16 @@ export default function ActivitiesList(){
           value: query, 
           onChange: function(e){ setQuery(e.target.value); },
           onKeyPress: function(e){ if (e.key === 'Enter') onSearch(e); },
-          className: 'block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500', 
+          className: 'block w-full pl-10 pr-36 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500', 
           placeholder: 'Tìm kiếm hoạt động...' 
         }),
-        React.createElement('button', {
-          key: 'search-button',
-          type: 'submit',
-          className: 'absolute inset-y-0 right-0 pr-3 flex items-center'
-        }, React.createElement(ChevronRight, { className: 'h-5 w-5 text-gray-400 hover:text-gray-600' }))
+        React.createElement('div', { key: 'search-actions', className: 'absolute inset-y-0 right-0 pr-2 flex items-center gap-2' }, [
+          React.createElement('button', {
+            key: 'do-search',
+            type: 'submit',
+            className: 'inline-flex items-center px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700'
+          }, 'Tìm kiếm')
+        ])
       ])
     ]),
 
@@ -273,27 +346,34 @@ export default function ActivitiesList(){
         React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Loại hoạt động'),
         React.createElement('select', { 
           value: filters.type, 
-          onChange: function(e){ setFilters({...filters, type: e.target.value}); },
+          onChange: function(e){ 
+            const newFilters = {...filters, type: e.target.value};
+            setFilters(newFilters);
+            onFilterChange(newFilters);
+          },
           className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
         }, [
           React.createElement('option', { key: 'all', value: '' }, 'Tất cả'),
-          React.createElement('option', { key: 'academic', value: 'academic' }, 'Học thuật'),
-          React.createElement('option', { key: 'volunteer', value: 'volunteer' }, 'Tình nguyện'),
-          React.createElement('option', { key: 'cultural', value: 'cultural' }, 'Văn hóa'),
-          React.createElement('option', { key: 'sports', value: 'sports' }, 'Thể thao')
+          ...activityTypes.map(type => 
+            React.createElement('option', { key: type.id, value: type.name }, type.name)
+          )
         ])
       ]),
       React.createElement('div', { key: 'status-filter' }, [
         React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Trạng thái'),
         React.createElement('select', { 
           value: filters.status, 
-          onChange: function(e){ setFilters({...filters, status: e.target.value}); },
+          onChange: function(e){ 
+            const newFilters = {...filters, status: e.target.value};
+            setFilters(newFilters);
+            onFilterChange(newFilters);
+          },
           className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
         }, [
           React.createElement('option', { key: 'all', value: '' }, 'Tất cả'),
-          React.createElement('option', { key: 'upcoming', value: 'upcoming' }, 'Sắp diễn ra'),
-          React.createElement('option', { key: 'ongoing', value: 'ongoing' }, 'Đang diễn ra'),
-          React.createElement('option', { key: 'past', value: 'past' }, 'Đã kết thúc')
+          React.createElement('option', { key: 'soon', value: 'soon' }, 'Sắp diễn ra'),
+          React.createElement('option', { key: 'open', value: 'open' }, 'Đang mở đăng ký'),
+          React.createElement('option', { key: 'closed', value: 'closed' }, 'Đã kết thúc')
         ])
       ]),
       React.createElement('div', { key: 'from-filter' }, [
@@ -301,7 +381,11 @@ export default function ActivitiesList(){
         React.createElement('input', { 
           type: 'date', 
           value: filters.from, 
-          onChange: function(e){ setFilters({...filters, from: e.target.value}); },
+          onChange: function(e){ 
+            const newFilters = {...filters, from: e.target.value};
+            setFilters(newFilters);
+            onFilterChange(newFilters);
+          },
           className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
         })
       ]),
@@ -310,7 +394,11 @@ export default function ActivitiesList(){
         React.createElement('input', { 
           type: 'date', 
           value: filters.to, 
-          onChange: function(e){ setFilters({...filters, to: e.target.value}); },
+          onChange: function(e){ 
+            const newFilters = {...filters, to: e.target.value};
+            setFilters(newFilters);
+            onFilterChange(newFilters);
+          },
           className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500' 
         })
       ])
@@ -374,6 +462,7 @@ export default function ActivitiesList(){
         onClick: function() {
           setQuery('');
           setFilters({ type: '', status: '', from: '', to: '' });
+          setPagination(prev => ({ ...prev, page: 1 }));
           loadActivities();
         },
         className: 'mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
@@ -384,14 +473,58 @@ export default function ActivitiesList(){
     (!loading && !error && items.length > 0) && React.createElement('div', { key: 'activities' }, [
       React.createElement('div', { key: 'results-info', className: 'flex items-center justify-between mb-6' }, [
         React.createElement('span', { key: 'count', className: 'text-gray-600' }, 
-          `Tìm thấy ${items.length} hoạt động`),
+          `Tìm thấy ${pagination.total} hoạt động`),
         React.createElement('button', { 
           key: 'refresh',
           onClick: loadActivities,
           className: 'text-blue-600 hover:text-blue-700 text-sm font-medium'
         }, 'Làm mới')
       ]),
-      activitiesGrid
+      activitiesGrid,
+      // Pagination
+      pagination.total > pagination.limit && React.createElement('div', { key: 'pagination', className: 'flex items-center justify-center mt-8 gap-2' }, [
+        React.createElement('button', {
+          key: 'prev',
+          onClick: () => handlePageChange(pagination.page - 1),
+          disabled: pagination.page <= 1,
+          className: `flex items-center gap-2 px-4 py-2 rounded-lg border ${
+            pagination.page <= 1 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-300'
+          }`
+        }, [
+          React.createElement(ChevronLeft, { className: 'h-4 w-4' }),
+          'Trước'
+        ]),
+        ...Array.from({ length: Math.min(5, Math.ceil(pagination.total / pagination.limit)) }, (_, i) => {
+          const pageNum = pagination.page - 2 + i;
+          const isValidPage = pageNum > 0 && pageNum <= Math.ceil(pagination.total / pagination.limit);
+          if (!isValidPage) return null;
+          
+          return React.createElement('button', {
+            key: `page-${pageNum}`,
+            onClick: () => handlePageChange(pageNum),
+            className: `px-4 py-2 rounded-lg border ${
+              pageNum === pagination.page
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-300'
+            }`
+          }, pageNum);
+        }).filter(Boolean),
+        React.createElement('button', {
+          key: 'next',
+          onClick: () => handlePageChange(pagination.page + 1),
+          disabled: pagination.page >= Math.ceil(pagination.total / pagination.limit),
+          className: `flex items-center gap-2 px-4 py-2 rounded-lg border ${
+            pagination.page >= Math.ceil(pagination.total / pagination.limit)
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-300'
+          }`
+        }, [
+          'Sau',
+          React.createElement(ChevronRight, { className: 'h-4 w-4' })
+        ])
+      ])
     ])
   ]);
 }

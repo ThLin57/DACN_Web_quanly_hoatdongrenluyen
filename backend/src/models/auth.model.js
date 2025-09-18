@@ -38,6 +38,11 @@ class AuthModel {
     });
   }
 
+  // Alias for legacy code compatibility
+  static findUserByMaso(maso) {
+    return this.timNguoiDungTheoMaso(maso);
+  }
+
   // Tìm người dùng theo email
   static async timNguoiDungTheoEmail(email) {
     const e = String(email || '').trim().toLowerCase();

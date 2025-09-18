@@ -8,6 +8,9 @@ const { auth: authMiddleware, requireAdmin, authorizeRoles, requireTeacher } = r
 const dashboard = require('./dashboard.route');
 const activities = require('./activities.route');
 const qrAttendance = require('./qr-attendance.route');
+const notifications = require('./notifications.route');
+const studentPoints = require('./student-points.route');
+const classRoutes = require('./class.route');
 
 const router = Router();
 
@@ -31,6 +34,15 @@ router.use('/activities', authMiddleware, activities);
 
 // QR Attendance routes
 router.use('/attendance', qrAttendance);
+
+// Notifications routes (đã đăng nhập)
+router.use('/notifications', notifications);
+
+// Student Points routes (đã đăng nhập) 
+router.use('/student-points', studentPoints);
+
+// Class management routes (LOP_TRUONG role required)
+router.use('/class', classRoutes);
 
 // Ví dụ các route dành cho giảng viên/lớp trưởng (chưa hiện thực chi tiết)
 router.get('/teacher-only/ping', authMiddleware, requireTeacher, (req, res) => {

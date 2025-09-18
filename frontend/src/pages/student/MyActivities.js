@@ -17,19 +17,35 @@ export default function MyActivities(){
       try {
         setLoading(true);
         setError('');
-        const res = await http.get('/auth/my-activities');
-        const arr = Array.isArray(res.data?.data) ? res.data.data : [];
         
-        const pending = arr.filter(x => (x.trang_thai_dk || '').toLowerCase() === 'cho_duyet');
-        const approved = arr.filter(x => (x.trang_thai_dk || '').toLowerCase() === 'da_duyet');
-        const joined = arr.filter(x => (x.trang_thai_dk || '').toLowerCase() === 'da_tham_gia');
-        const rejected = arr.filter(x => (x.trang_thai_dk || '').toLowerCase() === 'tu_choi');
+        // Sử dụng endpoint mới từ dashboard
+        const res = await http.get('/dashboard/activities/me');
+        console.log('API Response:', res.data); // Debug log
+        
+        // Kiểm tra cấu trúc response
+        const activities = res.data?.success && Array.isArray(res.data.data) 
+          ? res.data.data 
+          : Array.isArray(res.data) 
+            ? res.data 
+            : [];
+        
+        console.log('Processed activities:', activities); // Debug log
+        
+        // Phân loại theo trạng thái đăng ký
+        const pending = activities.filter(x => (x.trang_thai_dk || '').toLowerCase() === 'cho_duyet');
+        const approved = activities.filter(x => (x.trang_thai_dk || '').toLowerCase() === 'da_duyet');
+        const joined = activities.filter(x => (x.trang_thai_dk || '').toLowerCase() === 'da_tham_gia');
+        const rejected = activities.filter(x => (x.trang_thai_dk || '').toLowerCase() === 'tu_choi');
+        
+        console.log('Categories:', { pending: pending.length, approved: approved.length, joined: joined.length, rejected: rejected.length }); // Debug log
         
         if (!mounted) return;
         setData({ pending, approved, joined, rejected });
       } catch (err) {
+        console.error('Load my activities error:', err);
+        console.error('Error details:', err.response?.data); // Debug log
         if (!mounted) return;
-        setError(err?.response?.data?.message || 'Lỗi tải dữ liệu');
+        setError(err?.response?.data?.message || err?.message || 'Lỗi tải dữ liệu hoạt động');
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -41,11 +57,18 @@ export default function MyActivities(){
     if (!window.confirm(`Bạn có chắc muốn hủy đăng ký hoạt động "${activityName}"?`)) return;
     
     try {
-      await http.post('/activities/' + hdId + '/cancel');
-      alert('Đã hủy đăng ký thành công');
-      window.location.reload();
+      const res = await http.post(`/activities/${hdId}/cancel`);
+      if (res.data?.success) {
+        alert('Đã hủy đăng ký thành công!');
+        // Reload data instead of full page refresh
+        window.location.reload();
+      } else {
+        alert(res.data?.message || 'Hủy đăng ký thành công');
+        window.location.reload();
+      }
     } catch (e) {
-      alert(e?.response?.data?.message || 'Hủy đăng ký thất bại');
+      const errorMsg = e?.response?.data?.message || e?.message || 'Hủy đăng ký thất bại';
+      alert(errorMsg);
     }
   }
 
@@ -53,7 +76,8 @@ export default function MyActivities(){
     const activityData = activity.hoat_dong || activity;
     const startDate = activityData.ngay_bd ? new Date(activityData.ngay_bd) : null;
     const endDate = activityData.ngay_kt ? new Date(activityData.ngay_kt) : null;
-    const registrationDate = activity.ngay_dk ? new Date(activity.ngay_dk) : null;
+    const registrationDate = activity.ngay_dang_ky ? new Date(activity.ngay_dang_ky) : null;
+    const approvalDate = activity.ngay_duyet ? new Date(activity.ngay_duyet) : null;
 
     const statusConfig = {
       'pending': { 
@@ -118,7 +142,7 @@ export default function MyActivities(){
       React.createElement('div', { key: 'details', className: 'space-y-3 mb-4' }, [
         React.createElement('div', { key: 'type', className: 'flex items-center text-sm text-gray-600' }, [
           React.createElement(Calendar, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-          React.createElement('span', {}, activityData.loai || activityData.loai_hd?.ten_loai_hd || 'Chưa phân loại')
+          React.createElement('span', {}, activityData.loai || 'Chưa phân loại')
         ]),
         
         startDate && React.createElement('div', { key: 'time', className: 'flex items-center text-sm text-gray-600' }, [
@@ -143,6 +167,18 @@ export default function MyActivities(){
         registrationDate && React.createElement('div', { key: 'reg-date', className: 'flex items-center text-sm text-gray-500' }, [
           React.createElement(FileText, { className: 'h-4 w-4 mr-2 text-gray-400' }),
           React.createElement('span', {}, `Đăng ký ngày: ${registrationDate.toLocaleDateString('vi-VN')}`)
+        ]),
+
+        // Show approval date for approved/joined activities
+        (status === 'approved' || status === 'joined') && approvalDate && React.createElement('div', { key: 'approval-date', className: 'flex items-center text-sm text-green-600' }, [
+          React.createElement(CheckCircle, { className: 'h-4 w-4 mr-2' }),
+          React.createElement('span', {}, `Duyệt ngày: ${approvalDate.toLocaleDateString('vi-VN')}`)
+        ]),
+
+        // Show rejection reason for rejected activities
+        status === 'rejected' && activity.ly_do_tu_choi && React.createElement('div', { key: 'reject-reason', className: 'flex items-start text-sm text-red-600 mt-2 p-2 bg-red-50 rounded' }, [
+          React.createElement(AlertCircle, { className: 'h-4 w-4 mr-2 mt-0.5 flex-shrink-0' }),
+          React.createElement('span', {}, `Lý do từ chối: ${activity.ly_do_tu_choi}`)
         ])
       ]),
 

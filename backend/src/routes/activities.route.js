@@ -52,13 +52,13 @@ router.get('/', auth, async (req, res) => {
       });
     }
 
-    // Nếu là sinh viên -> thêm điều kiện cùng lớp với người tạo (lớp trưởng)
+    // Nếu là sinh viên -> hiển thị hoạt động đã được duyệt và đã kết thúc
     try {
       const role = String(req.user?.role || '').toLowerCase();
       if (role === 'student' || role === 'sinh_vien') {
-        const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub }, select: { lop_id: true } });
-        if (sv?.lop_id) {
-          where.nguoi_tao = { is: { sinh_vien: { is: { lop_id: sv.lop_id } } } };
+        // Hiển thị hoạt động đã duyệt và đã kết thúc nếu user không chỉ định trangThai khác
+        if (!trangThai) {
+          where.trang_thai = { in: ['da_duyet', 'ket_thuc'] };
         }
       }
     } catch (_) {}
@@ -78,14 +78,38 @@ router.get('/', auth, async (req, res) => {
       prisma.hoatDong.count({ where })
     ]);
 
+    // Check registration status for current user if they are a student
+    let registrations = [];
+    try {
+      if (req.user?.role?.toLowerCase() === 'sinh_vien' || req.user?.role?.toLowerCase() === 'student') {
+        const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub } });
+        if (sv) {
+          const activityIds = list.map(hd => hd.id);
+          registrations = await prisma.dangKyHoatDong.findMany({
+            where: { sv_id: sv.id, hd_id: { in: activityIds } },
+            select: { hd_id: true, trang_thai_dk: true }
+          });
+        }
+      }
+    } catch (_) {}
+
+    const registrationMap = new Map(registrations.map(r => [r.hd_id, r.trang_thai_dk]));
+
     const data = list.map((hd) => ({
       id: hd.id,
       ten_hd: hd.ten_hd,
+      mo_ta: hd.mo_ta,
       loai: hd.loai_hd?.ten_loai_hd || null,
       diem_rl: Number(hd.diem_rl || 0),
       ngay_bd: hd.ngay_bd,
+      ngay_kt: hd.ngay_kt,
+      han_dk: hd.han_dk,
       trang_thai: hd.trang_thai,
       dia_diem: hd.dia_diem || null,
+      don_vi_to_chuc: hd.don_vi_to_chuc || null,
+      sl_toi_da: hd.sl_toi_da,
+      is_registered: registrationMap.has(hd.id),
+      registration_status: registrationMap.get(hd.id) || null
     }));
 
     sendResponse(res, 200, ApiResponse.success({ items: data, total, page: parseInt(page), limit: take }, 'Danh sách hoạt động'));
@@ -101,7 +125,39 @@ router.get('/:id', auth, async (req, res) => {
     const { id } = req.params;
     const hd = await prisma.hoatDong.findUnique({ where: { id }, include: { loai_hd: true } });
     if (!hd) return sendResponse(res, 404, ApiResponse.notFound('Không tìm thấy hoạt động'));
-    sendResponse(res, 200, ApiResponse.success(hd, 'Chi tiết hoạt động'));
+
+    // Kiểm tra trạng thái đăng ký của user hiện tại (nếu là sinh viên)
+    let is_registered = false;
+    let registration_status = null;
+    try {
+      const role = String(req.user?.role || '').toLowerCase();
+      if (role === 'sinh_vien' || role === 'student' || role === 'lop_truong') {
+        const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub } });
+        if (sv) {
+          const reg = await prisma.dangKyHoatDong.findUnique({ where: { sv_id_hd_id: { sv_id: sv.id, hd_id: id } } });
+          if (reg) { is_registered = true; registration_status = reg.trang_thai_dk; }
+        }
+      }
+    } catch (_) {}
+
+    const data = {
+      id: hd.id,
+      ten_hd: hd.ten_hd,
+      mo_ta: hd.mo_ta,
+      loai: hd.loai_hd?.ten_loai_hd || null,
+      diem_rl: Number(hd.diem_rl || 0),
+      ngay_bd: hd.ngay_bd,
+      ngay_kt: hd.ngay_kt,
+      han_dk: hd.han_dk,
+      trang_thai: hd.trang_thai,
+      dia_diem: hd.dia_diem || null,
+      don_vi_to_chuc: hd.don_vi_to_chuc || null,
+      sl_toi_da: hd.sl_toi_da,
+      is_registered,
+      registration_status
+    };
+
+    sendResponse(res, 200, ApiResponse.success(data, 'Chi tiết hoạt động'));
   } catch (error) {
     logError('Get activity detail error', error);
     sendResponse(res, 500, ApiResponse.error('Không thể lấy chi tiết hoạt động'));
@@ -115,7 +171,7 @@ router.post('/', auth, async (req, res) => {
     if (!['GIANG_VIEN', 'LOP_TRUONG', 'ADMIN'].includes(role)) {
       return sendResponse(res, 403, ApiResponse.forbidden('Bạn không có quyền tạo hoạt động'));
     }
-    const { ten_hd, mo_ta, loai_hd_id, diem_rl = 0, dia_diem, ngay_bd, ngay_kt, han_dk, sl_toi_da = 1, don_vi_to_chuc, yeu_cau_tham_gia } = req.body || {};
+    const { ten_hd, mo_ta, loai_hd_id, diem_rl = 0, dia_diem, ngay_bd, ngay_kt, han_dk, sl_toi_da = 1, don_vi_to_chuc, yeu_cau_tham_gia, nam_hoc, hoc_ky } = req.body || {};
     if (!ten_hd || !loai_hd_id || !ngay_bd || !ngay_kt) {
       return sendResponse(res, 400, ApiResponse.validationError([{ field: 'payload', message: 'Thiếu thông tin bắt buộc' }]));
     }
@@ -127,6 +183,7 @@ router.post('/', auth, async (req, res) => {
         ten_hd: String(ten_hd), mo_ta: mo_ta || null, loai_hd_id: String(loai_hd_id), diem_rl: new Prisma.Decimal(diem_rl),
         dia_diem: dia_diem || null, ngay_bd: new Date(ngay_bd), ngay_kt: new Date(ngay_kt), han_dk: han_dk ? new Date(han_dk) : null,
         sl_toi_da: Number(sl_toi_da) || 1, don_vi_to_chuc: don_vi_to_chuc || null, yeu_cau_tham_gia: yeu_cau_tham_gia || null,
+        nam_hoc: nam_hoc || null, hoc_ky: hoc_ky || undefined,
         nguoi_tao_id: req.user.sub, trang_thai: role === 'GIANG_VIEN' || role === 'ADMIN' ? 'da_duyet' : 'cho_duyet'
       }
     });
@@ -191,12 +248,12 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Sinh viên đăng ký tham gia hoạt động
+// Sinh viên/Lớp trưởng đăng ký tham gia hoạt động
 router.post('/:id/register', auth, async (req, res) => {
   try {
     const role = String(req.user?.role || '').toUpperCase();
-    if (!['SINH_VIEN', 'STUDENT'].includes(role)) {
-      return sendResponse(res, 403, ApiResponse.forbidden('Chỉ sinh viên mới được đăng ký'));
+    if (!['SINH_VIEN', 'STUDENT', 'LOP_TRUONG'].includes(role)) {
+      return sendResponse(res, 403, ApiResponse.forbidden('Chỉ sinh viên hoặc lớp trưởng mới được đăng ký'));
     }
     const { id } = req.params;
     const hd = await prisma.hoatDong.findUnique({ where: { id } });
@@ -221,12 +278,12 @@ router.post('/:id/register', auth, async (req, res) => {
   }
 });
 
-// Sinh viên hủy đăng ký theo activityId (tự động tìm regId)
+// Sinh viên/Lớp trưởng hủy đăng ký theo activityId (tự động tìm regId)
 router.post('/:id/cancel', auth, async (req, res) => {
   try {
     const role = String(req.user?.role || '').toUpperCase();
-    if (!['SINH_VIEN', 'STUDENT'].includes(role)) {
-      return sendResponse(res, 403, ApiResponse.forbidden('Chỉ sinh viên mới được hủy đăng ký'));
+    if (!['SINH_VIEN', 'STUDENT', 'LOP_TRUONG'].includes(role)) {
+      return sendResponse(res, 403, ApiResponse.forbidden('Chỉ sinh viên hoặc lớp trưởng mới được hủy đăng ký'));
     }
     const { id } = req.params;
     const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub } });

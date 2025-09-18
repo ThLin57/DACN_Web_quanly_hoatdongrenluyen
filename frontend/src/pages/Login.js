@@ -80,6 +80,7 @@ export default function Login() {
         var user = data?.user || null;
         try { setAuth({ token, user }); } catch(_) {}
         window.localStorage.setItem('token', token);
+        try { if (user) window.localStorage.setItem('user', JSON.stringify(user)); } catch (_) {}
         var role = (user?.role || '').toString().toUpperCase();
         var target = '/';
         if (role === 'ADMIN') target = '/admin';
@@ -110,6 +111,7 @@ export default function Login() {
         var user = data?.user || null;
         try { setAuth({ token, user }); } catch(_) {}
         window.localStorage.setItem('token', token);
+        try { if (user) window.localStorage.setItem('user', JSON.stringify(user)); } catch (_) {}
         var role = (user?.role || '').toString().toUpperCase();
         var target = '/';
         if (role === 'ADMIN') target = '/admin';

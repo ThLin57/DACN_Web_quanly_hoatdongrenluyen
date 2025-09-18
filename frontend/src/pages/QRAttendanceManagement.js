@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Users, Clock, MapPin, Settings, Eye, Plus, Calendar, CheckCircle, XCircle } from 'lucide-react';
 import http from '../services/http';
+import ClassManagementLayout from '../components/ClassManagementLayout';
 
 export default function QRAttendanceManagement() {
   const [activities, setActivities] = useState([]);
@@ -134,7 +135,7 @@ export default function QRAttendanceManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <ClassManagementLayout role="lop_truong">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -460,6 +461,6 @@ export default function QRAttendanceManagement() {
           </div>
         )}
       </div>
-    </div>
+    </ClassManagementLayout>
   );
 }

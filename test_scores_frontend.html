@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Scores Page</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Testing Scores API</h1>
+    <div id="result"></div>
+    
+    <script>
+        async function testScores() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                resultDiv.innerHTML = '<p>🔄 Testing scores API...</p>';
+                
+                // First login
+                const loginResponse = await axios.post('/api/auth/login', {
+                    maso: 'admin',
+                    password: 'Admin@123'
+                });
+                
+                const token = loginResponse.data.data.token;
+                resultDiv.innerHTML += '<p>✅ Login successful</p>';
+                
+                // Test scores API with the exact same parameters as frontend
+                const viewBy = 'hoc_ky';
+                const selected = '2025-2026_HK1';
+                const [namHocPart, hocKyPart] = selected.split('_');
+                const hocKy = hocKyPart ? hocKyPart.replace('HK', '') : '1';
+                
+                const response = await axios.get('/api/dashboard/scores/detailed', {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    params: { 
+                        hoc_ky: hocKy,
+                        nam_hoc: namHocPart,
+                        view_by: viewBy 
+                    }
+                });
+                
+                resultDiv.innerHTML += '<p>✅ Scores API successful</p>';
+                resultDiv.innerHTML += '<pre>' + JSON.stringify(response.data, null, 2) + '</pre>';
+                
+                // Test data extraction like frontend does now
+                const data = response.data.data; // This is what frontend will get after fix
+                resultDiv.innerHTML += '<h3>Frontend Data After Fix:</h3>';
+                resultDiv.innerHTML += '<p>Student: ' + data.student_info.ho_ten + ' (' + data.student_info.mssv + ')</p>';
+                resultDiv.innerHTML += '<p>Score: ' + data.summary.total_score + '/100</p>';
+                resultDiv.innerHTML += '<p>Activities: ' + data.activities.length + '</p>';
+                
+            } catch (error) {
+                resultDiv.innerHTML += '<p>❌ Error: ' + error.message + '</p>';
+                if (error.response) {
+                    resultDiv.innerHTML += '<pre>' + JSON.stringify(error.response.data, null, 2) + '</pre>';
+                }
+            }
+        }
+        
+        // Run test when page loads
+        testScores();
+    </script>
+</body>
+</html>

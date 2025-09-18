@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calendar, Award, TrendingUp, Bell, Clock, MapPin, Users, ChevronRight, Star, BookOpen, Target, Activity } from 'lucide-react';
+import http from '../../services/http';
 
 export default function DashboardStudent(){
   const [summary, setSummary] = React.useState({ totalPoints: 0, progress: 0, targetPoints: 100, activitiesJoined: 0 });
@@ -9,89 +10,91 @@ export default function DashboardStudent(){
 
   React.useEffect(function load(){
     let mounted = true;
-    // Enhanced placeholder data with better structure
-    const placeholderUpcoming = [
-      { 
-        id: 'u1', 
-        ten_hd: 'Hoạt động tình nguyện dọn dẹp môi trường', 
-        ngay_bd: '2025-09-20T08:00:00Z',
-        dia_diem: 'Công viên Tao Đàn',
-        diem_rl: 5,
-        status: 'upcoming'
-      },
-      { 
-        id: 'u2', 
-        ten_hd: 'Giải bóng đá khoa Công nghệ thông tin', 
-        ngay_bd: '2025-09-22T16:00:00Z',
-        dia_diem: 'Sân bóng trường',
-        diem_rl: 3,
-        status: 'upcoming'
-      },
-      { 
-        id: 'u3', 
-        ten_hd: 'Talkshow: Xu hướng công nghệ 2025', 
-        ngay_bd: '2025-09-25T19:00:00Z',
-        dia_diem: 'Hội trường A',
-        diem_rl: 4,
-        status: 'upcoming'
-      }
-    ];
     
-    const placeholderNotifications = [
-      { 
-        id: 'n1', 
-        title: 'Cập nhật lịch hoạt động tuần này',
-        message: 'Có 3 hoạt động mới được thêm vào lịch tuần này',
-        time: '2 giờ trước',
-        type: 'info'
-      },
-      { 
-        id: 'n2', 
-        title: 'Nhắc nhở nộp minh chứng điểm RL',
-        message: 'Hạn cuối nộp minh chứng là 30/09/2025',
-        time: '1 ngày trước',
-        type: 'warning'
-      },
-      { 
-        id: 'n3', 
-        title: 'Kết quả điểm danh hoạt động',
-        message: 'Bạn đã được cộng 5 điểm từ hoạt động tình nguyện',
-        time: '3 ngày trước',
-        type: 'success'
+    // Load real data from API
+    async function loadDashboardData() {
+      try {
+        console.log('🔄 Loading dashboard data from API...');
+        
+        const response = await http.get('/dashboard/student');
+        console.log('✅ Dashboard API Response:', response.data);
+        
+        if(!mounted) return;
+        
+        const apiData = response.data.data;
+        
+        // Set real data from API
+        if (apiData.summary) {
+          console.log('📊 Setting summary data:', apiData.summary);
+          setSummary(apiData.summary);
+        }
+        
+        if (apiData.upcomingActivities) {
+          console.log('📅 Setting upcoming activities:', apiData.upcomingActivities);
+          setUpcoming(apiData.upcomingActivities);
+        }
+        
+        if (apiData.recentActivities) {
+          console.log('🎯 Setting recent activities:', apiData.recentActivities);
+          setRecentActivities(apiData.recentActivities);
+        }
+        
+        // Mock notifications since API doesn't provide them yet
+        const mockNotifications = [
+          { 
+            id: 'n1', 
+            title: 'Cập nhật lịch hoạt động tuần này',
+            message: 'Có hoạt động mới được thêm vào lịch tuần này',
+            time: '2 giờ trước',
+            type: 'info'
+          },
+          { 
+            id: 'n2', 
+            title: 'Nhắc nhở nộp minh chứng điểm RL',
+            message: 'Hạn cuối nộp minh chứng là 30/09/2025',
+            time: '1 ngày trước',
+            type: 'warning'
+          }
+        ];
+        setNotifications(mockNotifications);
+        
+      } catch (error) {
+        console.error('❌ Error loading dashboard data:', error);
+        
+        if(!mounted) return;
+        
+        // Fallback data in case of API error
+        setSummary({ 
+          totalPoints: 0, 
+          progress: 0, 
+          targetPoints: 100,
+          activitiesJoined: 0
+        });
+        setUpcoming([]);
+        setRecentActivities([]);
+        setNotifications([]);
       }
-    ];
-
-    const placeholderRecentActivities = [
-      {
-        id: 'r1',
-        ten_hd: 'Workshop lập trình React',
-        ngay_tham_gia: '2025-09-10',
-        diem_rl: 4,
-        status: 'completed'
-      },
-      {
-        id: 'r2', 
-        ten_hd: 'Hiến máu tình nguyện',
-        ngay_tham_gia: '2025-09-08',
-        diem_rl: 6,
-        status: 'completed'
-      }
-    ];
+    }
     
-    Promise.resolve().then(function(){
-      if(!mounted) return;
-      setSummary({ 
-        totalPoints: 75, 
-        progress: 0.75, 
-        targetPoints: 100,
-        activitiesJoined: 12
-      });
-      setUpcoming(placeholderUpcoming);
-      setNotifications(placeholderNotifications);
-      setRecentActivities(placeholderRecentActivities);
-    });
+    loadDashboardData();
+    
     return function(){ mounted = false; };
   }, []);
+
+  // Debug function to manually test API
+  async function debugApiCall() {
+    try {
+      console.log('🔄 MANUAL: Testing API call...');
+      const response = await http.get('/dashboard/student');
+      console.log('✅ MANUAL: Full Response:', response);
+      console.log('📊 MANUAL: Response Data:', response.data);
+      console.log('🎯 MANUAL: Summary Data:', response.data?.data?.summary);
+      alert(`API Response: totalPoints = ${response.data?.data?.summary?.totalPoints || 'undefined'}`);
+    } catch (error) {
+      console.error('❌ MANUAL: API Error:', error);
+      alert(`API Error: ${error.message}`);
+    }
+  }
 
   // Improved Stats Card Component
   function statsCard(title, value, icon, color = 'blue', subtitle, trend) {
@@ -218,6 +221,15 @@ export default function DashboardStudent(){
     }, [
       React.createElement('h1', { key: 'title', className: 'text-2xl font-bold mb-2' }, 'Chào mừng trở lại! 👋'),
       React.createElement('p', { key: 'subtitle', className: 'text-blue-100' }, 'Hãy cùng tham gia các hoạt động để tích lũy điểm rèn luyện nhé!')
+    ]),
+
+    // Debug Button
+    React.createElement('div', { key: 'debug', className: 'text-center' }, [
+      React.createElement('button', {
+        key: 'debugBtn',
+        onClick: debugApiCall,
+        className: 'bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium'
+      }, '🐛 Test API Call (Debug)')
     ]),
 
     // Stats Cards

@@ -29,6 +29,9 @@ RUN npx prisma generate || npx prisma generate
 # ----- Build frontend -----
 FROM base AS frontend_build
 WORKDIR /app/frontend
+# Optional cache-buster to force rebuild of the frontend layer only
+ARG FRONTEND_BUILD_ID
+ENV FRONTEND_BUILD_ID=${FRONTEND_BUILD_ID}
 COPY ./frontend/package.json ./frontend/package-lock.json ./
 RUN npm install
 COPY ./frontend/ ./
