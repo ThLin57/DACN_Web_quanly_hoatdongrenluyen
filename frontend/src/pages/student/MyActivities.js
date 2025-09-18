@@ -126,14 +126,14 @@ export default function MyActivities(){
           React.createElement('h3', { key: 'title', className: 'text-lg font-semibold text-gray-900 mb-2' }, 
             activityData.ten_hd || activityData.name || 'Hoạt động'),
           React.createElement('div', { key: 'status', className: 'flex items-center gap-2' }, [
-            React.createElement('div', { className: `inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text} ${config.border} border` }, [
-              React.createElement(StatusIcon, { className: 'h-4 w-4 mr-2' }),
+            React.createElement('div', { key: `status-pill-${activityData.id || activity.hd_id || 'unknown'}`, className: `inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text} ${config.border} border` }, [
+              React.createElement(StatusIcon, { key: `status-icon-${activityData.id || activity.hd_id || 'unknown'}`, className: 'h-4 w-4 mr-2' }),
               config.label
             ])
           ])
         ]),
         React.createElement('div', { key: 'points', className: 'text-right' }, [
-          React.createElement('div', { className: 'px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200' }, 
+          React.createElement('div', { key: `points-pill-${activityData.id || activity.hd_id || 'unknown'}`, className: 'px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200' }, 
             `+${activityData.diem_rl || activityData.diem || 0} điểm`)
         ])
       ]),
@@ -141,44 +141,44 @@ export default function MyActivities(){
       // Activity details
       React.createElement('div', { key: 'details', className: 'space-y-3 mb-4' }, [
         React.createElement('div', { key: 'type', className: 'flex items-center text-sm text-gray-600' }, [
-          React.createElement(Calendar, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-          React.createElement('span', {}, activityData.loai || 'Chưa phân loại')
+          React.createElement(Calendar, { key: `type-icon-${activityData.id || activity.hd_id || 'unknown'}`, className: 'h-4 w-4 mr-2 text-gray-400' }),
+          React.createElement('span', { key: `type-text-${activityData.id || activity.hd_id || 'unknown'}` }, activityData.loai || 'Chưa phân loại')
         ]),
         
         startDate && React.createElement('div', { key: 'time', className: 'flex items-center text-sm text-gray-600' }, [
-          React.createElement(Clock, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-          React.createElement('div', {}, [
-            React.createElement('span', {}, startDate.toLocaleDateString('vi-VN')),
-            React.createElement('span', { className: 'mx-2 text-gray-400' }, '•'),
-            React.createElement('span', {}, startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }))
+          React.createElement(Clock, { key: `time-icon-${activityData.id || activity.hd_id || 'unknown'}`, className: 'h-4 w-4 mr-2 text-gray-400' }),
+          React.createElement('div', { key: `time-text-${activityData.id || activity.hd_id || 'unknown'}` }, [
+            React.createElement('span', { key: `time-date-${activityData.id || activity.hd_id || 'unknown'}` }, startDate.toLocaleDateString('vi-VN')),
+            React.createElement('span', { key: `time-dot-${activityData.id || activity.hd_id || 'unknown'}`, className: 'mx-2 text-gray-400' }, '•'),
+            React.createElement('span', { key: `time-hour-${activityData.id || activity.hd_id || 'unknown'}` }, startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }))
           ])
         ]),
         
         activityData.dia_diem && React.createElement('div', { key: 'location', className: 'flex items-center text-sm text-gray-600' }, [
-          React.createElement(MapPin, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-          React.createElement('span', {}, activityData.dia_diem)
+          React.createElement(MapPin, { key: `loc-icon-${activityData.id || activity.hd_id || 'unknown'}`, className: 'h-4 w-4 mr-2 text-gray-400' }),
+          React.createElement('span', { key: `loc-text-${activityData.id || activity.hd_id || 'unknown'}` }, activityData.dia_diem)
         ]),
         
         activityData.don_vi_to_chuc && React.createElement('div', { key: 'organizer', className: 'flex items-center text-sm text-gray-600' }, [
-          React.createElement(Users, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-          React.createElement('span', {}, activityData.don_vi_to_chuc)
+          React.createElement(Users, { key: `org-icon-${activityData.id || activity.hd_id || 'unknown'}`, className: 'h-4 w-4 mr-2 text-gray-400' }),
+          React.createElement('span', { key: `org-text-${activityData.id || activity.hd_id || 'unknown'}` }, activityData.don_vi_to_chuc)
         ]),
 
         registrationDate && React.createElement('div', { key: 'reg-date', className: 'flex items-center text-sm text-gray-500' }, [
-          React.createElement(FileText, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-          React.createElement('span', {}, `Đăng ký ngày: ${registrationDate.toLocaleDateString('vi-VN')}`)
+          React.createElement(FileText, { key: `reg-icon-${activityData.id || activity.hd_id || 'unknown'}`, className: 'h-4 w-4 mr-2 text-gray-400' }),
+          React.createElement('span', { key: `reg-text-${activityData.id || activity.hd_id || 'unknown'}` }, `Đăng ký ngày: ${registrationDate.toLocaleDateString('vi-VN')}`)
         ]),
 
         // Show approval date for approved/joined activities
         (status === 'approved' || status === 'joined') && approvalDate && React.createElement('div', { key: 'approval-date', className: 'flex items-center text-sm text-green-600' }, [
-          React.createElement(CheckCircle, { className: 'h-4 w-4 mr-2' }),
-          React.createElement('span', {}, `Duyệt ngày: ${approvalDate.toLocaleDateString('vi-VN')}`)
+          React.createElement(CheckCircle, { key: `approval-icon-${activityData.id || activity.hd_id || 'unknown'}`, className: 'h-4 w-4 mr-2' }),
+          React.createElement('span', { key: `approval-text-${activityData.id || activity.hd_id || 'unknown'}` }, `Duyệt ngày: ${approvalDate.toLocaleDateString('vi-VN')}`)
         ]),
 
         // Show rejection reason for rejected activities
         status === 'rejected' && activity.ly_do_tu_choi && React.createElement('div', { key: 'reject-reason', className: 'flex items-start text-sm text-red-600 mt-2 p-2 bg-red-50 rounded' }, [
-          React.createElement(AlertCircle, { className: 'h-4 w-4 mr-2 mt-0.5 flex-shrink-0' }),
-          React.createElement('span', {}, `Lý do từ chối: ${activity.ly_do_tu_choi}`)
+          React.createElement(AlertCircle, { key: `reject-icon-${activityData.id || activity.hd_id || 'unknown'}`, className: 'h-4 w-4 mr-2 mt-0.5 flex-shrink-0' }),
+          React.createElement('span', { key: `reject-text-${activityData.id || activity.hd_id || 'unknown'}` }, `Lý do từ chối: ${activity.ly_do_tu_choi}`)
         ])
       ]),
 
@@ -228,9 +228,10 @@ export default function MyActivities(){
           : 'bg-white text-gray-700 hover:bg-gray-50 border'
       }`
     }, [
-      React.createElement(Icon, { className: 'h-4 w-4' }),
-      React.createElement('span', {}, title),
+      React.createElement(Icon, { key: `tab-icon-${value}`, className: 'h-4 w-4' }),
+      React.createElement('span', { key: `tab-title-${value}` }, title),
       React.createElement('span', { 
+        key: `tab-count-${value}`,
         className: `ml-1 px-2 py-0.5 rounded-full text-xs ${
           active ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'
         }`

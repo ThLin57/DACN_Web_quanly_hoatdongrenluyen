@@ -23,76 +23,30 @@ export default function ClassReports() {
       setLoading(true);
       const response = await http.get(`/class/reports?timeRange=${timeRange}`);
       const raw = response?.data?.data;
-      // Normalize to a plain object
-      const data = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? { ...raw } : {};
-      // Ensure shape
-      data.overview = data.overview && typeof data.overview === 'object' ? data.overview : {
-        totalStudents: 0,
-        totalActivities: 0,
-        avgPoints: 0,
-        participationRate: 0
-      };
-      data.monthlyActivities = Array.isArray(data.monthlyActivities) ? data.monthlyActivities : [];
-      data.pointsDistribution = Array.isArray(data.pointsDistribution) ? data.pointsDistribution : [];
-      data.attendanceRate = Array.isArray(data.attendanceRate) ? data.attendanceRate : [];
-      data.activityTypes = Array.isArray(data.activityTypes) ? data.activityTypes : [];
-      data.topStudents = Array.isArray(data.topStudents) ? data.topStudents : [];
-
-      setReportData(data.overview.totalStudents || data.monthlyActivities || data.pointsDistribution ? data : mockReportData);
+      // Normalize to a plain object and ensure minimal shape without mock fallbacks
+      const data = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? { ...raw } : null;
+      if (data) {
+        data.overview = data.overview && typeof data.overview === 'object' ? data.overview : {
+          totalStudents: 0,
+          totalActivities: 0,
+          avgPoints: 0,
+          participationRate: 0
+        };
+        data.monthlyActivities = Array.isArray(data.monthlyActivities) ? data.monthlyActivities : [];
+        data.pointsDistribution = Array.isArray(data.pointsDistribution) ? data.pointsDistribution : [];
+        data.attendanceRate = Array.isArray(data.attendanceRate) ? data.attendanceRate : [];
+        data.activityTypes = Array.isArray(data.activityTypes) ? data.activityTypes : [];
+        data.topStudents = Array.isArray(data.topStudents) ? data.topStudents : [];
+      }
+      setReportData(data);
       setError('');
     } catch (err) {
       console.error('Error loading report data:', err);
       setError('Không thể tải dữ liệu báo cáo');
-      // Use mock data for demonstration
-      setReportData(mockReportData);
+      setReportData(null);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Mock data for demonstration
-  const mockReportData = {
-    overview: {
-      totalStudents: 35,
-      totalActivities: 24,
-      avgPoints: 68.5,
-      participationRate: 85.7
-    },
-    monthlyActivities: [
-      { month: 'T8/2025', activities: 3, participants: 28 },
-      { month: 'T9/2025', activities: 8, participants: 32 },
-      { month: 'T10/2025', activities: 6, participants: 30 },
-      { month: 'T11/2025', activities: 4, participants: 25 },
-      { month: 'T12/2025', activities: 3, participants: 22 }
-    ],
-    pointsDistribution: [
-      { range: '0-20', count: 2, percentage: 5.7 },
-      { range: '21-40', count: 4, percentage: 11.4 },
-      { range: '41-60', count: 8, percentage: 22.9 },
-      { range: '61-80', count: 12, percentage: 34.3 },
-      { range: '81-100', count: 9, percentage: 25.7 }
-    ],
-    activityTypes: [
-      { name: 'Học thuật', count: 8, points: 32 },
-      { name: 'Thể thao', count: 6, points: 18 },
-      { name: 'Văn nghệ', count: 4, points: 16 },
-      { name: 'Tình nguyện', count: 4, points: 24 },
-      { name: 'Kỹ năng', count: 2, points: 8 }
-    ],
-    topStudents: [
-      { rank: 1, name: 'Nguyễn Văn A', mssv: '2021001', points: 95, activities: 15 },
-      { rank: 2, name: 'Trần Thị B', mssv: '2021002', points: 88, activities: 13 },
-      { rank: 3, name: 'Lê Văn C', mssv: '2021003', points: 82, activities: 12 },
-      { rank: 4, name: 'Phạm Thị D', mssv: '2021004', points: 78, activities: 11 },
-      { rank: 5, name: 'Hoàng Văn E', mssv: '2021005', points: 75, activities: 10 }
-    ],
-    attendanceRate: [
-      { month: 'T8', rate: 92 },
-      { month: 'T9', rate: 88 },
-      { month: 'T10', rate: 85 },
-      { month: 'T11', rate: 90 },
-      { month: 'T12', rate: 87 }
-    ]
   };
 
   const downloadBlob = (blob, filename) => {

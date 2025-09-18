@@ -12,10 +12,19 @@ export default function ActivitiesList(){
   const [viewMode, setViewMode] = React.useState('grid'); // 'grid' or 'list'
   const [showFilters, setShowFilters] = React.useState(false);
   const [pagination, setPagination] = React.useState({ page: 1, limit: 12, total: 0 });
+  const [role, setRole] = React.useState('');
 
   React.useEffect(function(){
     loadActivities();
     loadActivityTypes();
+    // load role for conditional UI (student vs. lop_truong)
+    http.get('/auth/profile')
+      .then(function(res){
+        const p = res.data?.data || res.data || {};
+        const r = String(p?.role || p?.vai_tro?.ten_vt || '').toLowerCase();
+        setRole(r);
+      })
+      .catch(function(){ setRole(''); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -130,6 +139,9 @@ export default function ActivitiesList(){
     const isUpcoming = startDate > now;
     const isOngoing = startDate <= now && endDate >= now;
     const isPast = endDate < now;
+    const deadline = activity.han_dk ? new Date(activity.han_dk) : startDate;
+    const isDeadlinePast = deadline && deadline.getTime && deadline.getTime() < now.getTime();
+    const isAfterStart = now.getTime() > startDate.getTime(); // Nếu không có hạn đăng ký, coi thời điểm bắt đầu là hạn cuối
 
     const statusConfig = {
       'cho_duyet': { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', dot: 'bg-yellow-400', label: 'Chờ duyệt' },
@@ -148,7 +160,7 @@ export default function ActivitiesList(){
                           isOngoing ? 'text-green-600' : 
                           isUpcoming ? 'text-blue-600' : 'text-gray-500';
 
-    const canRegister = activity.trang_thai === 'da_duyet' && !isPast && !activity.is_registered;
+    const canRegister = activity.trang_thai === 'da_duyet' && !isPast && !isDeadlinePast && !isAfterStart && !activity.is_registered;
     const activityType = activity.loai || activity.loai_hd?.ten_loai_hd || 'Chưa phân loại';
 
     if (mode === 'list') {
@@ -178,7 +190,7 @@ export default function ActivitiesList(){
                 }, `+${activity.diem_rl || 0} điểm`)
               ])
             ]),
-            React.createElement('div', { key: 'details', className: 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-4' }, [
+            React.createElement('div', { key: 'details', className: 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-2' }, [
               React.createElement('div', { key: 'time', className: 'flex items-center text-sm text-gray-600' }, [
                 React.createElement(Clock, { className: 'h-4 w-4 mr-2 text-gray-400' }),
                 React.createElement('div', {}, [
@@ -194,7 +206,12 @@ export default function ActivitiesList(){
               React.createElement('div', { key: 'organizer', className: 'flex items-center text-sm text-gray-600' }, [
                 React.createElement(Users, { className: 'h-4 w-4 mr-2 text-gray-400' }),
                 React.createElement('span', {}, activity.don_vi_to_chuc || 'Nhà trường')
-              ])
+            ]),
+            (isDeadlinePast || isAfterStart) && React.createElement('div', { key: 'deadline-badge', className: 'mt-2' }, [
+              React.createElement('span', { 
+                className: 'px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200'
+              }, 'Đã quá hạn đăng ký')
+            ])
             ])
           ]),
           React.createElement('div', { key: 'actions', className: 'flex flex-col gap-2 ml-6' }, [
@@ -263,8 +280,11 @@ export default function ActivitiesList(){
           ])
         ]),
         
-        React.createElement('div', { key: 'time-status', className: 'mb-4' }, [
-          React.createElement('span', { className: `text-sm font-medium ${timeStatusColor}` }, timeStatus)
+        React.createElement('div', { key: 'time-status', className: 'mb-4 flex items-center gap-2 flex-wrap' }, [
+          React.createElement('span', { className: `text-sm font-medium ${timeStatusColor}` }, timeStatus),
+          isDeadlinePast && React.createElement('span', { 
+            className: 'px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200'
+          }, 'Đã quá hạn đăng ký')
         ])
       ]),
       

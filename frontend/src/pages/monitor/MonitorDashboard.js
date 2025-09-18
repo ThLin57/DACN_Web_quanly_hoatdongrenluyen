@@ -36,21 +36,22 @@ export default function MonitorDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const activitiesRes = await http.get('/activities').catch(() => ({ data: { data: [] } }));
+  // Use backend dashboard API for activities list (class/all)
+  const activitiesRes = await http.get('/dashboard/activities/class/all').catch(() => ({ data: { data: [] } }));
       const rawActivities = activitiesRes?.data?.data;
       const activities = Array.isArray(rawActivities)
         ? rawActivities
         : Array.isArray(rawActivities?.items)
           ? rawActivities.items
           : [];
-      const students = [
-        { id: 1, totalPoints: 85, activitiesJoined: 12 },
-        { id: 2, totalPoints: 78, activitiesJoined: 10 },
-        { id: 3, totalPoints: 92, activitiesJoined: 15 },
-        { id: 4, totalPoints: 65, activitiesJoined: 8 },
-        { id: 5, totalPoints: 88, activitiesJoined: 11 }
-      ];
-      const approvals = [];
+      // Pull real students list for class leader dashboard
+      const studentsRes = await http.get('/class/students').catch(() => ({ data: { data: [] } }));
+      const students = Array.isArray(studentsRes?.data?.data) ? studentsRes.data.data : [];
+
+      // Pending approvals from API
+      const approvalsRes = await http.get('/class/registrations').catch(() => ({ data: { data: [] } }));
+      const approvals = Array.isArray(approvalsRes?.data?.data) ? approvalsRes.data.data : [];
+
       const totalStudents = students.length;
       const totalActivities = activities.length;
       const pendingApprovals = approvals.length;
@@ -67,19 +68,23 @@ export default function MonitorDashboard() {
       });
       setUpcomingActivities(activities.slice ? activities.slice(0, 3) : []);
       setRecentApprovals(approvals);
-      const mockClassProgress = [
-        { id: 1, name: 'Học thuật', studentsCompleted: Math.floor(totalStudents * 0.8), totalStudents, averagePoints: 18, maxPoints: 25, color: '#3B82F6', icon: '📚' },
-        { id: 2, name: 'Tình nguyện', studentsCompleted: Math.floor(totalStudents * 0.6), totalStudents, averagePoints: 15, maxPoints: 25, color: '#10B981', icon: '🤝' },
-        { id: 3, name: 'Thể thao', studentsCompleted: Math.floor(totalStudents * 0.4), totalStudents, averagePoints: 8, maxPoints: 20, color: '#F59E0B', icon: '🏃' },
-        { id: 4, name: 'Văn nghệ', studentsCompleted: Math.floor(totalStudents * 0.3), totalStudents, averagePoints: 6, maxPoints: 15, color: '#8B5CF6', icon: '🎭' }
-      ];
-      setClassProgress(mockClassProgress);
+
+      // Simple class progress from real data: aggregate by activity type using dashboard activities
+      const typeMap = new Map();
+      activities.forEach(a => {
+        const key = a?.loai_hd?.ten_loai_hd || a.loai || 'Khác';
+        const cur = typeMap.get(key) || { id: key, name: key, studentsCompleted: 0, totalStudents, averagePoints: 0, maxPoints: 25, color: '#3B82F6', icon: '📚' };
+        cur.averagePoints += Number(a.diem_rl || 0);
+        typeMap.set(key, cur);
+      });
+      const progress = Array.from(typeMap.values()).map(p => ({ ...p, averagePoints: Math.round((p.averagePoints / Math.max(1, totalStudents)) * 10) / 10 }));
+      setClassProgress(progress);
     } catch (err) {
       console.error('Error loading dashboard:', err);
-      setSummary({ totalStudents: 25, totalActivities: 8, pendingApprovals: 3, avgClassScore: 75, myPoints: 75, progress: 0.75 });
-      setUpcomingActivities([]);
-      setRecentApprovals([]);
-      setClassProgress([]);
+  setSummary({ totalStudents: 0, totalActivities: 0, pendingApprovals: 0, avgClassScore: 0, myPoints: 0, progress: 0 });
+  setUpcomingActivities([]);
+  setRecentApprovals([]);
+  setClassProgress([]);
     } finally { setLoading(false); }
   };
 

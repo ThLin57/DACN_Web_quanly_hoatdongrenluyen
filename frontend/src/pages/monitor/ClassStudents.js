@@ -25,73 +25,7 @@ export default function ClassStudents() {
     } catch (err) {
       console.error('Error loading students:', err);
       setError('Không thể tải danh sách sinh viên');
-      // Mock data for demonstration
-      setStudents([
-        {
-          id: 1,
-          mssv: '2021001',
-          nguoi_dung: {
-            ho_ten: 'Nguyễn Văn A',
-            email: 'nguyenvana@student.dlu.edu.vn',
-            sdt: '0123456789'
-          },
-          totalPoints: 85,
-          activitiesJoined: 12,
-          lastActivityDate: '2025-09-15T10:00:00Z',
-          rank: 1,
-          gpa: 3.8,
-          academicYear: '2021-2025',
-          status: 'active'
-        },
-        {
-          id: 2,
-          mssv: '2021002',
-          nguoi_dung: {
-            ho_ten: 'Trần Thị B',
-            email: 'tranthib@student.dlu.edu.vn',
-            sdt: '0987654321'
-          },
-          totalPoints: 72,
-          activitiesJoined: 9,
-          lastActivityDate: '2025-09-10T14:30:00Z',
-          rank: 2,
-          gpa: 3.6,
-          academicYear: '2021-2025',
-          status: 'active'
-        },
-        {
-          id: 3,
-          mssv: '2021003',
-          nguoi_dung: {
-            ho_ten: 'Lê Văn C',
-            email: 'levanc@student.dlu.edu.vn',
-            sdt: '0369852147'
-          },
-          totalPoints: 45,
-          activitiesJoined: 6,
-          lastActivityDate: '2025-09-05T09:00:00Z',
-          rank: 8,
-          gpa: 3.2,
-          academicYear: '2021-2025',
-          status: 'warning'
-        },
-        {
-          id: 4,
-          mssv: '2021004',
-          nguoi_dung: {
-            ho_ten: 'Phạm Thị D',
-            email: 'phamthid@student.dlu.edu.vn',
-            sdt: '0741852963'
-          },
-          totalPoints: 28,
-          activitiesJoined: 3,
-          lastActivityDate: '2025-08-25T16:00:00Z',
-          rank: 15,
-          gpa: 2.8,
-          academicYear: '2021-2025',
-          status: 'critical'
-        }
-      ]);
+      setStudents([]);
     } finally {
       setLoading(false);
     }

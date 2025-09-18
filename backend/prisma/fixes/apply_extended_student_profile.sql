@@ -1,4 +1,4 @@
--- Make each column addition idempotent to avoid failures if some exist
+-- Idempotent fix to ensure extended student profile columns exist
 ALTER TABLE "public"."sinh_vien" ADD COLUMN IF NOT EXISTS "avatar_url" TEXT;
 ALTER TABLE "public"."sinh_vien" ADD COLUMN IF NOT EXISTS "dia_chi_gia_dinh" TEXT;
 ALTER TABLE "public"."sinh_vien" ADD COLUMN IF NOT EXISTS "diem_thpt" DECIMAL(4,2);

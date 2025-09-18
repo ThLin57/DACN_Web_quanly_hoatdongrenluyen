@@ -10,9 +10,7 @@ export default function ClassManagementLayout({ children, role = 'lop_truong' })
       React.createElement(Header, { key: 'header' }),
       React.createElement('div', { key: 'body', className: 'flex' }, [
         React.createElement(Sidebar, { key: 'sidebar', role: role }),
-        React.createElement('main', { key: 'main', className: 'flex-1 p-6' }, [
-          children
-        ])
+        React.createElement('main', { key: 'main', className: 'flex-1 p-6' }, children)
       ])
     ]
   );

@@ -253,7 +253,17 @@ class ClassController {
         prisma.sinhVien.count(),
         prisma.dangKyHoatDong.findMany({
           where: { hoat_dong: { ngay_bd: { gte: startDate } } },
-          include: { hoat_dong: { select: { diem_rl: true, ngay_bd: true, loai_hd: { select: { ten_loai_hd: true } } } }, sinh_vien: { select: { id: true, mssv: true, nguoi_dung: { select: { ho_ten: true } } } } }
+          include: {
+            hoat_dong: {
+              select: {
+                id: true,
+                diem_rl: true,
+                ngay_bd: true,
+                loai_hd: { select: { ten_loai_hd: true } }
+              }
+            },
+            sinh_vien: { select: { id: true, mssv: true, nguoi_dung: { select: { ho_ten: true } } } }
+          }
         })
       ]);
 
@@ -262,30 +272,49 @@ class ClassController {
       const uniqueParticipants = new Set(regs.filter(r => ['da_duyet','da_tham_gia'].includes(r.trang_thai_dk)).map(r => r.sinh_vien.id)).size;
       const participationRate = totalStudents > 0 ? (uniqueParticipants / totalStudents) * 100 : 0;
 
-      // Monthly activities
-      const monthKey = d => `${d.getFullYear()}-${d.getMonth()+1}`;
-      const monthlyMap = new Map();
+      // Monthly activities (distinct activities per month) and monthly attendance rate (unique participants per month)
+      const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const monthlyActivityIds = new Map(); // key -> Set(activityId)
+      const monthlyParticipantSets = new Map(); // key -> Set(studentId)
       regs.forEach(r => {
         const d = r.hoat_dong?.ngay_bd ? new Date(r.hoat_dong.ngay_bd) : now;
         const key = monthKey(d);
-        const val = monthlyMap.get(key) || { month: `T${d.getMonth()+1}/${d.getFullYear()}`, activities: 0, participants: 0 };
-        val.activities += 1;
-        if (['da_duyet','da_tham_gia'].includes(r.trang_thai_dk)) val.participants += 1;
-        monthlyMap.set(key, val);
+        if (!monthlyActivityIds.has(key)) monthlyActivityIds.set(key, new Set());
+        if (r.hoat_dong?.id) monthlyActivityIds.get(key).add(r.hoat_dong.id);
+        if (!monthlyParticipantSets.has(key)) monthlyParticipantSets.set(key, new Set());
+        if (r.trang_thai_dk === 'da_tham_gia') monthlyParticipantSets.get(key).add(r.sinh_vien.id);
       });
-      const monthlyActivities = Array.from(monthlyMap.values()).sort((a,b)=>a.month.localeCompare(b.month));
+      const monthlyActivities = Array.from(monthlyActivityIds.keys()).sort().map(key => {
+        const [year, mm] = key.split('-');
+        const monthNumber = parseInt(mm, 10);
+        const label = `T${monthNumber}/${year}`;
+        const activities = monthlyActivityIds.get(key)?.size || 0;
+        const participants = monthlyParticipantSets.get(key)?.size || 0;
+        return { month: label, activities, participants };
+      });
 
-      // Activity types distribution
-      const typeMap = new Map();
+      // Activity types distribution (distinct activities per type)
+      const activitiesById = new Map(); // activityId -> { typeName, diem_rl }
       regs.forEach(r => {
-        const name = r.hoat_dong?.loai_hd?.ten_loai_hd || 'Khác';
-        const cur = typeMap.get(name) || { name, count: 0, points: 0 };
-        cur.count += 1; cur.points += Number(r.hoat_dong?.diem_rl || 0);
-        typeMap.set(name, cur);
+        const id = r.hoat_dong?.id;
+        if (!id) return;
+        if (!activitiesById.has(id)) {
+          activitiesById.set(id, {
+            typeName: r.hoat_dong?.loai_hd?.ten_loai_hd || 'Khác',
+            diem_rl: Number(r.hoat_dong?.diem_rl || 0)
+          });
+        }
       });
-      const activityTypes = Array.from(typeMap.values());
+      const typeAgg = new Map(); // typeName -> { name, count, points }
+      activitiesById.forEach(({ typeName, diem_rl }) => {
+        const cur = typeAgg.get(typeName) || { name: typeName, count: 0, points: 0 };
+        cur.count += 1;
+        cur.points += diem_rl;
+        typeAgg.set(typeName, cur);
+      });
+      const activityTypes = Array.from(typeAgg.values());
 
-      // Top students by points in range
+      // Top students by points in range (attended only)
       const studentPoints = new Map();
       regs.filter(r => r.trang_thai_dk === 'da_tham_gia').forEach(r => {
         const id = r.sinh_vien.id;
@@ -296,6 +325,41 @@ class ClassController {
       });
       const topStudents = Array.from(studentPoints.values()).sort((a,b)=>b.points-a.points).slice(0,5).map((s,idx)=>({ rank: idx+1, name: s.name, mssv: s.mssv, points: s.points, activities: s.activities }));
 
+      // Points distribution across students (bins)
+      const bins = [
+        { range: '0-20', min: 0, max: 20 },
+        { range: '21-40', min: 21, max: 40 },
+        { range: '41-60', min: 41, max: 60 },
+        { range: '61-80', min: 61, max: 80 },
+        { range: '81-100', min: 81, max: 100 }
+      ];
+      const binCounts = bins.map(() => 0);
+      const studentsWithPoints = Array.from(studentPoints.values());
+      studentsWithPoints.forEach(s => {
+        const p = Math.max(0, Math.min(100, Math.round(s.points)));
+        const idx = bins.findIndex(b => p >= b.min && p <= b.max);
+        if (idx >= 0) binCounts[idx] += 1;
+      });
+      const participantsCount = new Set(regs.filter(r => r.trang_thai_dk === 'da_tham_gia').map(r => r.sinh_vien.id)).size;
+      const nonParticipants = Math.max(0, totalStudents - participantsCount);
+      // Add non-participants (0 points) to the lowest bin
+      binCounts[0] += nonParticipants;
+      const pointsDistribution = bins.map((b, i) => ({
+        range: b.range,
+        count: binCounts[i],
+        percentage: totalStudents > 0 ? parseFloat(((binCounts[i] / totalStudents) * 100).toFixed(1)) : 0
+      }));
+
+      // Attendance rate per month (unique attendees / total students)
+      const attendanceRate = Array.from(monthlyParticipantSets.keys()).sort().map(key => {
+        const mmSet = monthlyParticipantSets.get(key) || new Set();
+        const monthNumber = parseInt(key.split('-')[1], 10);
+        return {
+          month: `T${monthNumber}`,
+          rate: totalStudents > 0 ? Math.round((mmSet.size / totalStudents) * 100) : 0
+        };
+      });
+
       const reportData = {
         overview: {
           totalStudents,
@@ -304,10 +368,10 @@ class ClassController {
           participationRate: parseFloat(participationRate.toFixed(1))
         },
         monthlyActivities,
-        pointsDistribution: [],
+        pointsDistribution,
         activityTypes,
         topStudents,
-        attendanceRate: []
+        attendanceRate
       };
 
   return sendResponse(res, 200, ApiResponse.success(reportData, 'Báo cáo thống kê lớp'));

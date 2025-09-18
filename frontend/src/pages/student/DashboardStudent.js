@@ -5,7 +5,6 @@ import http from '../../services/http';
 export default function DashboardStudent(){
   const [summary, setSummary] = React.useState({ totalPoints: 0, progress: 0, targetPoints: 100, activitiesJoined: 0 });
   const [upcoming, setUpcoming] = React.useState([]);
-  const [notifications, setNotifications] = React.useState([]);
   const [recentActivities, setRecentActivities] = React.useState([]);
 
   React.useEffect(function load(){
@@ -39,24 +38,7 @@ export default function DashboardStudent(){
           setRecentActivities(apiData.recentActivities);
         }
         
-        // Mock notifications since API doesn't provide them yet
-        const mockNotifications = [
-          { 
-            id: 'n1', 
-            title: 'Cập nhật lịch hoạt động tuần này',
-            message: 'Có hoạt động mới được thêm vào lịch tuần này',
-            time: '2 giờ trước',
-            type: 'info'
-          },
-          { 
-            id: 'n2', 
-            title: 'Nhắc nhở nộp minh chứng điểm RL',
-            message: 'Hạn cuối nộp minh chứng là 30/09/2025',
-            time: '1 ngày trước',
-            type: 'warning'
-          }
-        ];
-        setNotifications(mockNotifications);
+        // Notifications hiển thị ở Header, không dùng mock tại đây
         
       } catch (error) {
         console.error('❌ Error loading dashboard data:', error);
@@ -72,7 +54,7 @@ export default function DashboardStudent(){
         });
         setUpcoming([]);
         setRecentActivities([]);
-        setNotifications([]);
+  // No notifications here; header component handles real data
       }
     }
     
