@@ -10,6 +10,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
 import AdminUserProfile from './pages/admin/AdminUserProfile';
 import AdminUserPoints from './pages/admin/AdminUserPoints';
+import AdminRoles from './pages/admin/AdminRoles';
+import AdminActivityTypes from './pages/admin/AdminActivityTypes';
 import ManageActivity from './pages/ManageActivity';
 import ActivityDetail from './pages/student/ActivityDetail';
 import QRScanner from './pages/QRScanner';
@@ -69,6 +71,8 @@ function App() {
         React.createElement(Route, { key: 'student-points', path: '/profile/points', element: React.createElement(RoleGuard, { allow: ['SINH_VIEN','STUDENT','LOP_TRUONG','GIANG_VIEN','ADMIN'], element: React.createElement(StudentPoints) }) }),
         React.createElement(Route, { key: 'admin', path: '/admin', element: React.createElement(RoleGuard, { allow: ['ADMIN'], element: React.createElement(AdminHome) }) }),
         React.createElement(Route, { key: 'admin-users', path: '/admin/users', element: React.createElement(RoleGuard, { allow: ['ADMIN'], element: React.createElement(UserManagement) }) }),
+        React.createElement(Route, { key: 'admin-roles', path: '/admin/roles', element: React.createElement(RoleGuard, { allow: ['ADMIN'], element: React.createElement(AdminRoles) }) }),
+        React.createElement(Route, { key: 'admin-activity-types', path: '/admin/activity-types', element: React.createElement(RoleGuard, { allow: ['ADMIN'], element: React.createElement(AdminActivityTypes) }) }),
         React.createElement(Route, { key: 'admin-users-profile', path: '/admin/users/profile', element: React.createElement(RoleGuard, { allow: ['ADMIN'], element: React.createElement(AdminUserProfile) }) }),
         React.createElement(Route, { key: 'admin-users-points', path: '/admin/users/points', element: React.createElement(RoleGuard, { allow: ['ADMIN'], element: React.createElement(AdminUserPoints) }) }),
   React.createElement(Route, { key: 'teacher', path: '/teacher', element: React.createElement(RoleGuard, { allow: ['GIANG_VIEN','ADMIN'], element: React.createElement(TeacherHome) }) }),

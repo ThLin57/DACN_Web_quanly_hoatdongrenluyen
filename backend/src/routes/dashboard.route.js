@@ -203,7 +203,7 @@ router.get('/scores/detailed', auth, async (req, res) => {
   try {
     const userId = req.user.sub;
     const userRole = req.user.role;
-    const { semester, year } = req.query;
+    const { semester, year, hoc_ky, nam_hoc } = req.query;
     
     // Nếu là admin, giảng viên - trả về dữ liệu mặc định/demo
     if (userRole === 'ADMIN' || userRole === 'GIANG_VIEN') {
@@ -249,21 +249,50 @@ router.get('/scores/detailed', auth, async (req, res) => {
       return sendResponse(res, 400, ApiResponse.validationError([{ field: 'sinh_vien', message: 'Không tìm thấy thông tin sinh viên' }]));
     }
     
-    // Lấy các hoạt động đã tham gia hoặc được duyệt
-    const activities = await prisma.dangKyHoatDong.findMany({
-      where: { 
+    // Chuẩn hóa bộ lọc kỳ/năm (tùy chọn)
+    let semesterEnum;
+    const rawSemester = (semester || hoc_ky || '').toString().toLowerCase();
+    if (rawSemester === '1' || rawSemester === 'hoc_ky_1' || rawSemester === 'hk1') {
+      semesterEnum = 'hoc_ky_1';
+    } else if (rawSemester === '2' || rawSemester === 'hoc_ky_2' || rawSemester === 'hk2') {
+      semesterEnum = 'hoc_ky_2';
+    }
+    const selectedYear = (year || nam_hoc) ? String(year || nam_hoc) : undefined;
+
+    const activityRelationFilter = {};
+    if (semesterEnum) activityRelationFilter.hoc_ky = semesterEnum;
+    if (selectedYear) activityRelationFilter.nam_hoc = selectedYear;
+
+    // Lấy đăng ký đã tham gia/đã duyệt (lọc theo kỳ/năm nếu có)
+    const registrationsPromise = prisma.dangKyHoatDong.findMany({
+      where: {
         sv_id: sv.id,
-        trang_thai_dk: { in: ['da_tham_gia', 'da_duyet'] }
+        trang_thai_dk: { in: ['da_tham_gia', 'da_duyet'] },
+        hoat_dong: activityRelationFilter,
       },
       include: {
-        hoat_dong: {
-          include: {
-            loai_hd: true
-          }
-        }
+        hoat_dong: { include: { loai_hd: true } },
       },
-      orderBy: { ngay_dang_ky: 'desc' }
+      orderBy: { ngay_dang_ky: 'desc' },
     });
+
+    // Lấy điểm danh xác nhận tham gia (cũng lọc theo kỳ/năm)
+    const attendancesPromise = prisma.diemDanh.findMany({
+      where: {
+        sv_id: sv.id,
+        xac_nhan_tham_gia: true,
+        hoat_dong: activityRelationFilter,
+      },
+      include: {
+        hoat_dong: { include: { loai_hd: true } },
+      },
+      orderBy: { tg_diem_danh: 'desc' },
+    });
+
+    const [registrations, attendances] = await Promise.all([
+      registrationsPromise,
+      attendancesPromise,
+    ]);
 
     // Tính điểm theo tiêu chí (dựa trên loại hoạt động)
     const criteriaBreakdown = {
@@ -276,41 +305,73 @@ router.get('/scores/detailed', auth, async (req, res) => {
 
     let totalPoints = 0;
     const activityList = [];
+    const byActivity = new Map(); // key = hd_id
 
-    activities.forEach(reg => {
+    // Hợp nhất theo hoạt động: ưu tiên đăng ký, bổ sung điểm danh nếu chưa có
+    registrations.forEach((reg) => {
       const activity = reg.hoat_dong;
-      const points = Number(activity.diem_rl || 0);
-      totalPoints += points;
-
-      const activityData = {
-        id: activity.id,
+      if (!activity) return;
+      byActivity.set(reg.hd_id, {
+        source: 'dang_ky',
         ten_hd: activity.ten_hd,
+        id: activity.id,
         ngay_bd: activity.ngay_bd,
-        diem_rl: points,
+        diem_rl: Number(activity.diem_rl || 0),
         loai: activity.loai_hd?.ten_loai_hd || 'Khác',
         dia_diem: activity.dia_diem,
         don_vi_to_chuc: activity.don_vi_to_chuc,
-        ngay_dang_ky: reg.ngay_dang_ky
-      };
+        ngay_tham_gia: reg.ngay_dang_ky,
+      });
+    });
 
-      activityList.push(activityData);
-
-      // Phân loại vào tiêu chí (đơn giản hóa)
-      const loaiHd = activity.loai_hd?.ten_loai_hd?.toLowerCase() || '';
-      if (loaiHd.includes('học') || loaiHd.includes('giáo dục')) {
-        criteriaBreakdown.hoc_tap.current += points;
-        criteriaBreakdown.hoc_tap.activities.push(activityData);
-      } else if (loaiHd.includes('tình nguyện') || loaiHd.includes('phong trào')) {
-        criteriaBreakdown.tinh_nguyen.current += points;
-        criteriaBreakdown.tinh_nguyen.activities.push(activityData);
-      } else if (loaiHd.includes('văn hóa') || loaiHd.includes('thể thao')) {
-        criteriaBreakdown.cong_dan.current += points;
-        criteriaBreakdown.cong_dan.activities.push(activityData);
-      } else {
-        criteriaBreakdown.noi_quy.current += points;
-        criteriaBreakdown.noi_quy.activities.push(activityData);
+    attendances.forEach((att) => {
+      const activity = att.hoat_dong;
+      if (!activity) return;
+      if (!byActivity.has(att.hd_id)) {
+        byActivity.set(att.hd_id, {
+          source: 'diem_danh',
+          ten_hd: activity.ten_hd,
+          id: activity.id,
+          ngay_bd: activity.ngay_bd,
+          diem_rl: Number(activity.diem_rl || 0),
+          loai: activity.loai_hd?.ten_loai_hd || 'Khác',
+          dia_diem: activity.dia_diem,
+          don_vi_to_chuc: activity.don_vi_to_chuc,
+          ngay_tham_gia: att.tg_diem_danh,
+        });
       }
     });
+
+    // Tính tổng điểm và phân loại
+    for (const [, a] of byActivity) {
+      totalPoints += a.diem_rl;
+      const activityData = {
+        id: a.id,
+        ten_hd: a.ten_hd,
+        ngay_bd: a.ngay_bd,
+        diem_rl: a.diem_rl,
+        loai: a.loai,
+        dia_diem: a.dia_diem,
+        don_vi_to_chuc: a.don_vi_to_chuc,
+        ngay_dang_ky: a.ngay_tham_gia,
+      };
+      activityList.push(activityData);
+
+      const loaiHd = (a.loai || '').toLowerCase();
+      if (loaiHd.includes('học') || loaiHd.includes('giáo dục')) {
+        criteriaBreakdown.hoc_tap.current += a.diem_rl;
+        criteriaBreakdown.hoc_tap.activities.push(activityData);
+      } else if (loaiHd.includes('tình nguyện') || loaiHd.includes('phong trào')) {
+        criteriaBreakdown.tinh_nguyen.current += a.diem_rl;
+        criteriaBreakdown.tinh_nguyen.activities.push(activityData);
+      } else if (loaiHd.includes('văn hóa') || loaiHd.includes('thể thao')) {
+        criteriaBreakdown.cong_dan.current += a.diem_rl;
+        criteriaBreakdown.cong_dan.activities.push(activityData);
+      } else {
+        criteriaBreakdown.noi_quy.current += a.diem_rl;
+        criteriaBreakdown.noi_quy.activities.push(activityData);
+      }
+    }
 
     // Tính xếp hạng trong lớp (giả định)
     const classRank = Math.floor(Math.random() * sv.lop?.total_students || 35) + 1;
@@ -329,8 +390,8 @@ router.get('/scores/detailed', auth, async (req, res) => {
         progress_percentage: Math.min((totalPoints / 100) * 100, 100),
         rank_in_class: classRank,  // Changed from class_rank 
         total_students_in_class: totalStudentsInClass,  // Changed from total_students
-        total_activities: activities.length,
-        average_points: activities.length > 0 ? parseFloat((totalPoints / activities.length).toFixed(1)) : 0
+        total_activities: activityList.length,
+        average_points: activityList.length > 0 ? parseFloat((totalPoints / activityList.length).toFixed(1)) : 0
       },
       criteria_breakdown: Object.keys(criteriaBreakdown).map(key => ({
         key,
@@ -339,9 +400,9 @@ router.get('/scores/detailed', auth, async (req, res) => {
       })),
       activities: activityList.map(activity => ({
         ...activity,
-        diem: activity.diem_rl,  // Add diem field that frontend expects
+        diem: activity.diem_rl,
         ngay_bd: activity.ngay_bd,
-        trang_thai: 'da_dien_ra'  // Add status that frontend expects
+        trang_thai: 'da_dien_ra'
       }))
     };
 

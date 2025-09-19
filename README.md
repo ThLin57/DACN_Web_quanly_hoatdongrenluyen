@@ -1,71 +1,3 @@
-# DACN - Đồ án cuối năm
-
-Hệ thống quản lý hoạt động sinh viên với React Frontend và Node.js Backend.
-
-## 🚀 Tính năng chính
-
-### Backend (Node.js + Express + Prisma + PostgreSQL)
-- ✅ Authentication với JWT
-- ✅ User Management (CRUD)
-- ✅ Role-based Authorization
-- ✅ Database với Prisma ORM
-- ✅ RESTful API với cấu trúc CSR
-- ✅ CORS configuration
-- ✅ Error handling
-- ✅ Security với Helmet & Rate Limiting
-- ✅ Logging với Winston
-- ✅ Input validation với Zod
-- ✅ Response compression
-- ✅ Health checks
-
-### Frontend (React + Tailwind CSS)
-- ✅ Modern UI với Tailwind CSS
-- ✅ Authentication system
-- ✅ Protected routes
-- ✅ Responsive design
-- ✅ Form validation
-- ✅ Toast notifications
-- ✅ Dashboard với thống kê
-- ✅ Custom React hooks
-- ✅ State management với Zustand
-- ✅ Utility functions
-- ✅ Component-based styling
-
-## 📁 Cấu trúc dự án
-
-```
-DACN/
-├── backend/                 # Node.js Backend (CSR Structure)
-│   ├── prisma/             # Database schema & migrations
-│   ├── src/
-│   │   ├── config/         # Application configuration
-│   │   ├── controllers/    # API controllers
-│   │   ├── middlewares/    # Express middlewares
-│   │   ├── routes/         # API routes
-│   │   ├── utils/          # Utility functions
-│   │   └── index.js        # Server entry point
-│   ├── logs/               # Application logs
-│   ├── package.json
-│   ├── STRUCTURE.md        # Backend structure documentation
-│   └── LOGIN_GUIDE.md      # Login guide
-├── frontend/               # React Frontend (CSR Structure)
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── pages/          # Page components
-│   │   ├── services/       # API services
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── assets/         # Images, fonts, icons
-│   │   ├── styles/         # CSS/SCSS files
-│   │   ├── utils/          # Helper functions
-│   │   ├── context/        # React contexts
-│   │   ├── store/          # State management (Zustand)
-│   │   └── App.js          # Main app component
-│   ├── package.json
-│   ├── STRUCTURE.md        # Frontend structure documentation
-│   └── README.md           # Frontend documentation
-├── docker/                 # Docker configuration
-└── README.md               # This file
-```
 
 ## 🛠️ Cài đặt và chạy
 
@@ -108,35 +40,6 @@ npm start
 ```
 
 Frontend sẽ chạy trên `http://localhost:3000`
-
-## 🔐 Tài khoản mẫu
-
-Sau khi chạy seed, có sẵn 3 tài khoản:
-
-| Vai trò | Mã số | Mật khẩu |
-|---------|--------|----------|
-| Admin | `AD001` | `Admin@123` |
-| Giảng viên | `GV001` | `Teacher@123` |
-| Sinh viên | `SV210001` | `Student@123` |
-
-## 📡 API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - Đăng nhập
-- `POST /api/auth/register` - Đăng ký
-- `GET /api/auth/profile` - Lấy thông tin profile
-- `POST /api/auth/logout` - Đăng xuất
-
-### Users
-- `GET /api/users` - Lấy danh sách users
-- `GET /api/users/:id` - Lấy thông tin user
-- `PUT /api/users/:id` - Cập nhật user
-- `DELETE /api/users/:id` - Xóa user
-
-### Health
-- `GET /api/health` - Kiểm tra trạng thái hệ thống
-
-## 🧪 Testing
 
 ### Test API Backend
 ```bash
@@ -304,3 +207,35 @@ docker compose logs -f frontend-dev
 - CORS/JWT: FE dev dùng proxy nội bộ tới BE nên CORS tối thiểu; cần đăng nhập đúng để có token hợp lệ.
 
 Tài liệu chi tiết: xem `SETUP_DEV.md`.
+
+### 9) Mang dữ liệu DB sang máy khác (Backup/Restore)
+
+Dữ liệu Prisma là dữ liệu thật trong Postgres (volume Docker), không tự đi theo code. Có 2 cách phổ biến:
+
+- Dump/restore (khuyến nghị):
+	- Tạo bản sao trên máy nguồn:
+		```powershell
+		# tạo file dump
+		docker compose exec db bash -lc "pg_dump -U admin -d Web_QuanLyDiemRenLuyen -Fc -f /tmp/db.dump"
+		docker cp dacn_db:/tmp/db.dump .\db.dump
+		```
+	- Khôi phục trên máy đích:
+		```powershell
+		docker compose --profile dev up -d db
+		docker cp .\db.dump dacn_db:/tmp/db.dump
+		docker compose exec db bash -lc "pg_restore -U admin -d Web_QuanLyDiemRenLuyen -c -1 /tmp/db.dump"
+		```
+
+- Dùng script PowerShell có sẵn:
+	- Backup:
+		```powershell
+		./scripts/backup-db.ps1
+		# hoặc chỉ định tên file:
+		./scripts/backup-db.ps1 -Output .\db.dump
+		```
+	- Restore:
+		```powershell
+		./scripts/restore-db.ps1 -Input .\db.dump
+		```
+
+Lưu ý: Không cần chạy seed nếu bạn muốn dữ liệu giống hệt máy nguồn. Seed chỉ dùng khi DB mới và bạn cần dữ liệu mẫu để test nhanh.

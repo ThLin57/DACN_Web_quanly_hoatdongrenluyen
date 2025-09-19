@@ -428,12 +428,75 @@ router.get('/:id/qr', auth, async (req, res) => {
     const { id } = req.params;
     const activity = await prisma.hoatDong.findUnique({ where: { id } });
     if (!activity) return sendResponse(res, 404, ApiResponse.notFound('Không tìm thấy hoạt động'));
-    // Tạm thời trả về payload QR text (thay vì ảnh). Ảnh sẽ cần thư viện qrcode.
     const qrPayload = JSON.stringify({ hd: id, ts: Date.now() });
     sendResponse(res, 200, ApiResponse.success({ text: qrPayload }, 'QR payload'));
   } catch (error) {
     logError('Get QR error', error);
     sendResponse(res, 500, ApiResponse.error('Không thể tạo QR'));
+  }
+});
+
+// New: Record attendance directly into DiemDanh (replaces QR session)
+router.post('/:id/attendance', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const role = String(req.user?.role || '').toUpperCase();
+    const activity = await prisma.hoatDong.findUnique({ where: { id } });
+    if (!activity) return sendResponse(res, 404, ApiResponse.notFound('Không tìm thấy hoạt động'));
+
+    // Resolve student from current user
+    const sv = await prisma.sinhVien.findUnique({ where: { nguoi_dung_id: req.user.sub } });
+    if (!sv) return sendResponse(res, 400, ApiResponse.validationError([{ field: 'sinh_vien', message: 'Không tìm thấy thông tin sinh viên' }]));
+
+    // Must have approved registration
+    const reg = await prisma.dangKyHoatDong.findUnique({ where: { sv_id_hd_id: { sv_id: sv.id, hd_id: id } } });
+    if (!reg || !['da_duyet','da_tham_gia'].includes(reg.trang_thai_dk)) {
+      return sendResponse(res, 400, ApiResponse.validationError([{ field: 'dang_ky', message: 'Chưa được duyệt tham gia' }]));
+    }
+
+    // Prevent duplicate attendance
+    const existed = await prisma.diemDanh.findUnique({ where: { sv_id_hd_id: { sv_id: sv.id, hd_id: id } } }).catch(()=>null);
+    if (existed) return sendResponse(res, 400, ApiResponse.validationError([{ field: 'duplicate', message: 'Đã điểm danh' }]));
+
+    const clientIp = (req.headers['x-forwarded-for'] || '').toString().split(',')[0] || req.ip || null;
+    const created = await prisma.diemDanh.create({
+      data: {
+        nguoi_diem_danh_id: req.user.sub,
+        sv_id: sv.id,
+        hd_id: id,
+        phuong_thuc: 'qr',
+        trang_thai_tham_gia: 'co_mat',
+        dia_chi_ip: clientIp,
+        xac_nhan_tham_gia: true
+      }
+    });
+
+    // Update registration to attended
+    if (reg.trang_thai_dk !== 'da_tham_gia') {
+      await prisma.dangKyHoatDong.update({ where: { id: reg.id }, data: { trang_thai_dk: 'da_tham_gia' } });
+    }
+
+    sendResponse(res, 201, ApiResponse.success({ id: created.id }, 'Điểm danh thành công'));
+  } catch (error) {
+    logError('Record attendance error', error);
+    sendResponse(res, 500, ApiResponse.error('Không thể điểm danh'));
+  }
+});
+
+// List attendance of an activity
+router.get('/:id/attendance', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const list = await prisma.diemDanh.findMany({
+      where: { hd_id: id },
+      include: { sinh_vien: { include: { nguoi_dung: true } } },
+      orderBy: { tg_diem_danh: 'desc' }
+    });
+    const data = list.map(r => ({ id: r.id, mssv: r.sinh_vien.mssv, ho_ten: r.sinh_vien.nguoi_dung?.ho_ten || '', tg: r.tg_diem_danh, thuc: r.phuong_thuc, tt: r.trang_thai_tham_gia }));
+    sendResponse(res, 200, ApiResponse.success(data, 'Danh sách điểm danh'));
+  } catch (error) {
+    logError('List attendance error', error);
+    sendResponse(res, 500, ApiResponse.error('Không thể lấy điểm danh'));
   }
 });
 

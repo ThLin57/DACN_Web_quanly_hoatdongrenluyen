@@ -31,7 +31,6 @@ services:
       CORS_ORIGIN: http://localhost:3001
     ports:
       - "3001:3001"
-      - "5555:5555"
     volumes:
       - type: bind
         source: ./backend/logs
@@ -62,7 +61,6 @@ services:
       - db
     ports:
       - "3001:3001"
-      - "5555:5555"
     networks:
       - dacn_network
     command: >-
@@ -78,6 +76,26 @@ services:
       npm run dev"
     profiles:
       - dev
+
+  # Prisma Studio service
+  prisma-studio:
+    image: node:18-alpine
+    container_name: dacn_prisma_studio
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://admin:abc@db:5432/Web_QuanLyDiemRenLuyen?schema=public
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+    ports:
+      - "5555:5555"
+    networks:
+      - dacn_network
+    command: >-
+      sh -lc "npm install --silent --no-progress || true; npx prisma studio --schema prisma/schema.prisma --hostname 0.0.0.0 --port 5555 --browser none"
+    # No profile so it appears as a standalone service in Docker Desktop
 
   # Frontend dev server (React)
   frontend-dev:

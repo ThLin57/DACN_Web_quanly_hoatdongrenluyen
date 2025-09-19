@@ -100,7 +100,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       return sendResponse(res, 401, ApiResponse.unauthorized('Mã số hoặc mật khẩu không đúng'));
     }
 
-    const isPasswordValid = await AuthModel.soSanhMatKhau(password, user.mat_khau);
+  const isPasswordValid = await AuthModel.verifyPasswordAndUpgrade(user, password);
     logInfo('LOGIN_PASSWORD_CHECK', { maso, ok: !!isPasswordValid });
     if (!isPasswordValid) {
       return sendResponse(res, 401, ApiResponse.unauthorized('Mã số hoặc mật khẩu không đúng'));
@@ -270,7 +270,7 @@ router.post('/change', auth, validate(changePasswordSchema), async (req, res) =>
     if (!user) {
       return sendResponse(res, 404, ApiResponse.notFound('Không tìm thấy người dùng'));
     }
-    const ok = await AuthModel.soSanhMatKhau(currentPassword, user.mat_khau);
+  const ok = await AuthModel.verifyPasswordAndUpgrade(user, currentPassword);
     if (!ok) {
       return sendResponse(res, 401, ApiResponse.unauthorized('Mật khẩu hiện tại không đúng'));
     }

@@ -31,9 +31,9 @@ class AuthModel {
 
   // Tìm người dùng theo tên đăng nhập (trước đây dùng 'maso')
   static timNguoiDungTheoMaso(maso) {
-    const identifier = String(maso || '').trim().toLowerCase();
-    return prisma.nguoiDung.findUnique({
-      where: { ten_dn: identifier },
+    const identifier = String(maso || '').trim();
+    return prisma.nguoiDung.findFirst({
+      where: { ten_dn: { equals: identifier, mode: 'insensitive' } },
       include: this.includeForUser()
     });
   }
@@ -86,6 +86,28 @@ class AuthModel {
   // Băm mật khẩu
   static bamMatKhau(plain) {
     return bcrypt.hash(plain, 10);
+  }
+
+  // Xác thực mật khẩu và tự động nâng cấp nếu DB đang lưu plain text (trường hợp sửa tay trong Prisma Studio)
+  static async verifyPasswordAndUpgrade(user, plain) {
+    const hashed = user?.mat_khau;
+    if (!hashed) return false;
+    try {
+      if (typeof hashed === 'string' && hashed.startsWith('$2')) {
+        return await bcrypt.compare(plain, hashed);
+      }
+      if (plain === hashed) {
+        const newHash = await bcrypt.hash(plain, 10);
+        await prisma.nguoiDung.update({
+          where: { id: user.id },
+          data: { mat_khau: newHash, ngay_cap_nhat: new Date() }
+        });
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   // Tìm (hoặc tạo) lớp học mặc định để gán khi đăng ký

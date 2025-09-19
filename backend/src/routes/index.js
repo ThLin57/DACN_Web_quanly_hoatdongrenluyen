@@ -7,7 +7,6 @@ const admin = require('./admin.route');
 const { auth: authMiddleware, requireAdmin, authorizeRoles, requireTeacher } = require('../middlewares/auth');
 const dashboard = require('./dashboard.route');
 const activities = require('./activities.route');
-const qrAttendance = require('./qr-attendance.route');
 const notifications = require('./notifications.route');
 const studentPoints = require('./student-points.route');
 const classRoutes = require('./class.route');
@@ -32,8 +31,7 @@ router.use('/dashboard', authMiddleware, dashboard);
 // Activities routes (đã đăng nhập)
 router.use('/activities', authMiddleware, activities);
 
-// QR Attendance routes
-router.use('/attendance', qrAttendance);
+// QR Attendance routes removed (migrate to DiemDanh-based flow)
 
 // Notifications routes (đã đăng nhập)
 router.use('/notifications', notifications);

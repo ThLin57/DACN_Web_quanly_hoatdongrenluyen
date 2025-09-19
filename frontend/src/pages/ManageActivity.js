@@ -35,6 +35,41 @@ export default function ManageActivity(){
   const [success, setSuccess] = React.useState('');
   const [error, setError] = React.useState('');
   const [fieldErrors, setFieldErrors] = React.useState({});
+  const tenHdRef = React.useRef(null);
+  const diaDiemRef = React.useRef(null);
+
+  // Dedicated handlers to avoid any unintended interference on generic handler
+  const onChangeTenHd = React.useCallback(function(e){
+    const el = e.target;
+    const v = el.value;
+    const caret = el.selectionStart || v.length;
+    setForm(function(prev){ return Object.assign({}, prev, { ten_hd: v }); });
+    setFieldErrors(function(prev){ const next = Object.assign({}, prev); delete next.ten_hd; return next; });
+    // Restore focus & caret to avoid losing focus after re-render
+    requestAnimationFrame(function(){
+      if (tenHdRef.current) {
+        try {
+          tenHdRef.current.focus();
+          tenHdRef.current.setSelectionRange(caret, caret);
+        } catch(_) {}
+      }
+    });
+  }, []);
+  const onChangeDiaDiem = React.useCallback(function(e){
+    const el = e.target;
+    const v = el.value;
+    const caret = el.selectionStart || v.length;
+    setForm(function(prev){ return Object.assign({}, prev, { dia_diem: v }); });
+    setFieldErrors(function(prev){ const next = Object.assign({}, prev); delete next.dia_diem; return next; });
+    requestAnimationFrame(function(){
+      if (diaDiemRef.current) {
+        try {
+          diaDiemRef.current.focus();
+          diaDiemRef.current.setSelectionRange(caret, caret);
+        } catch(_) {}
+      }
+    });
+  }, []);
 
   React.useEffect(function(){
     let mounted = true;
@@ -53,6 +88,7 @@ export default function ManageActivity(){
   function validate(){
     const errs = {};
     if(!form.ten_hd?.trim()) errs.ten_hd = 'Vui lòng nhập tên hoạt động';
+    if(form.ten_hd && form.ten_hd.trim().length < 3) errs.ten_hd = 'Tên hoạt động tối thiểu 3 ký tự';
     if(!form.loai_hd_id) errs.loai_hd_id = 'Vui lòng chọn loại hoạt động';
     if(!form.ngay_bd) errs.ngay_bd = 'Chọn thời gian bắt đầu';
     if(!form.ngay_kt) errs.ngay_kt = 'Chọn thời gian kết thúc';
@@ -61,6 +97,7 @@ export default function ManageActivity(){
     if(!form.nam_hoc?.match(/^\d{4}-\d{4}$/)) errs.nam_hoc = 'Năm học dạng YYYY-YYYY';
     if(!form.hoc_ky) errs.hoc_ky = 'Chọn học kỳ';
     if(form.sl_toi_da && Number(form.sl_toi_da) < 1) errs.sl_toi_da = 'Số lượng tối thiểu là 1';
+    if(form.dia_diem && form.dia_diem.trim().length < 2) errs.dia_diem = 'Địa điểm tối thiểu 2 ký tự';
     return errs;
   }
 
@@ -116,12 +153,17 @@ export default function ManageActivity(){
           <LabeledInput id="ten_hd" label="Tên hoạt động" hint="Ví dụ: Hiến máu nhân đạo" error={fieldErrors.ten_hd}>
             <input 
               id="ten_hd" 
+              type="text"
               name="ten_hd" 
               value={form.ten_hd} 
-              onChange={onChange} 
+              onChange={onChangeTenHd}
+              ref={tenHdRef}
+              maxLength={200}
+              autoComplete="off"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
               placeholder="Nhập tên hoạt động" 
             />
+            <div className="mt-1 text-xs text-gray-500">{(form.ten_hd || '').length}/200 ký tự</div>
           </LabeledInput>
           
           <LabeledInput id="loai_hd_id" label="Loại hoạt động" error={fieldErrors.loai_hd_id}>
@@ -204,12 +246,17 @@ export default function ManageActivity(){
           <LabeledInput id="dia_diem" label="Địa điểm" hint="Ví dụ: Hội trường A" error={fieldErrors.dia_diem}>
             <input 
               id="dia_diem" 
+              type="text"
               name="dia_diem" 
               value={form.dia_diem} 
-              onChange={onChange} 
+              onChange={onChangeDiaDiem}
+              ref={diaDiemRef}
+              maxLength={120}
+              autoComplete="off"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
               placeholder="Nhập địa điểm" 
             />
+            <div className="mt-1 text-xs text-gray-500">{(form.dia_diem || '').length}/120 ký tự</div>
           </LabeledInput>
 
           {/* Năm học & Học kỳ */}
@@ -263,7 +310,7 @@ export default function ManageActivity(){
             </button>
             <button 
               type="submit" 
-              disabled={submitting} 
+              disabled={submitting || Object.keys(validate()).length > 0}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
             >
               {submitting ? 'Đang tạo...' : 'Tạo hoạt động'}
