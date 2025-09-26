@@ -4,6 +4,15 @@ const { logError, logInfo } = require('../utils/logger');
 const bcrypt = require('bcryptjs');
 const { z } = require('zod');
 
+// Helper functions
+const success = (res, data, statusCode = 200) => {
+  return sendResponse(res, statusCode, ApiResponse.success(data));
+};
+
+const error = (res, message, statusCode = 400, errors = null) => {
+  return sendResponse(res, statusCode, ApiResponse.error(message, errors));
+};
+
 const prisma = new PrismaClient();
 
 // Validation schemas
@@ -58,6 +67,8 @@ const registerSchema = z.object({
   mat_khau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
   email: z.string().email('Email không hợp lệ'),
   ho_ten: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
+  // Vai trò người dùng
+  vai_tro: z.enum(['SINH_VIEN', 'LOP_TRUONG', 'GIANG_VIEN']).optional().default('SINH_VIEN'),
   // Thông tin sinh viên
   mssv: z.string().min(8, 'MSSV phải có ít nhất 8 ký tự').optional(),
   ngay_sinh: z.string().optional(),
@@ -356,16 +367,16 @@ class UsersController {
         }
       }
 
-      // Lấy vai trò sinh viên mặc định
-      let vaiTroSinhVien = await prisma.vaiTro.findFirst({
-        where: { ten_vt: 'SINH_VIEN' }
+      // Lấy vai trò theo yêu cầu
+      let vaiTro = await prisma.vaiTro.findFirst({
+        where: { ten_vt: validatedData.vai_tro }
       });
 
-      if (!vaiTroSinhVien) {
-        vaiTroSinhVien = await prisma.vaiTro.create({
+      if (!vaiTro) {
+        vaiTro = await prisma.vaiTro.create({
           data: {
-            ten_vt: 'SINH_VIEN',
-            mo_ta: 'Vai trò sinh viên'
+            ten_vt: validatedData.vai_tro,
+            mo_ta: `Vai trò ${validatedData.vai_tro}`
           }
         });
       }
@@ -382,30 +393,165 @@ class UsersController {
             mat_khau: hashedPassword,
             email: validatedData.email,
             ho_ten: validatedData.ho_ten,
-            vai_tro_id: vaiTroSinhVien.id,
+            vai_tro_id: vaiTro.id,
             trang_thai: 'hoat_dong'
           }
         });
 
-        // Tạo sinh viên (nếu có thông tin)
-        if (validatedData.mssv) {
-          await tx.sinhVien.create({
+        // Tạo sinh viên cho cả SINH_VIEN và LOP_TRUONG
+        if (validatedData.vai_tro === 'SINH_VIEN' || validatedData.vai_tro === 'LOP_TRUONG') {
+          // Tạo MSSV nếu chưa có
+          let mssv = validatedData.mssv;
+          if (!mssv) {
+            let baseMssv;
+            if (validatedData.vai_tro === 'LOP_TRUONG') {
+              baseMssv = `LT${validatedData.ten_dn.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`.slice(0, 8);
+            } else {
+              baseMssv = `SV${validatedData.ten_dn.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`.slice(0, 8);
+            }
+            
+            // Kiểm tra và tạo MSSV unique
+            let counter = 1;
+            mssv = baseMssv;
+            while (await tx.sinhVien.findUnique({ where: { mssv: mssv } })) {
+              mssv = `${baseMssv}${counter.toString().padStart(2, '0')}`;
+              counter++;
+            }
+          }
+
+          // Tìm lớp để gán nếu chưa có
+          let lopId = validatedData.lop_id;
+          if (!lopId) {
+            if (validatedData.vai_tro === 'LOP_TRUONG') {
+              // Lớp trưởng: tìm lớp chưa có lớp trưởng
+              const defaultLop = await tx.lop.findFirst({
+                where: { lop_truong: null }
+              });
+              if (defaultLop) {
+                lopId = defaultLop.id;
+              } else {
+                // Tạo lớp mới cho lớp trưởng
+                const giangVien = await tx.nguoiDung.findFirst({
+                  where: {
+                    vai_tro: {
+                      is: {
+                        ten_vt: 'GIANG_VIEN'
+                      }
+                    }
+                  }
+                });
+                
+                let chuNhiemId = giangVien?.id;
+                if (!chuNhiemId) {
+                  const admin = await tx.nguoiDung.findFirst({
+                    where: {
+                      vai_tro: {
+                        is: {
+                          ten_vt: 'ADMIN'
+                        }
+                      }
+                    }
+                  });
+                  chuNhiemId = admin?.id || newUser.id;
+                }
+                
+                const newLop = await tx.lop.create({
+                  data: {
+                    ten_lop: `Lớp ${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+                    khoa: 'CNTT',
+                    nien_khoa: '2021-2025',
+                    nam_nhap_hoc: new Date(),
+                    chu_nhiem: chuNhiemId
+                  }
+                });
+                lopId = newLop.id;
+              }
+            } else {
+              // Sinh viên thường: tìm lớp có sẵn
+              const defaultLop = await tx.lop.findFirst();
+              if (defaultLop) {
+                lopId = defaultLop.id;
+              } else {
+                // Tạo lớp mặc định cho sinh viên
+                const giangVien = await tx.nguoiDung.findFirst({
+                  where: {
+                    vai_tro: {
+                      is: {
+                        ten_vt: 'GIANG_VIEN'
+                      }
+                    }
+                  }
+                });
+                
+                let chuNhiemId = giangVien?.id;
+                if (!chuNhiemId) {
+                  const admin = await tx.nguoiDung.findFirst({
+                    where: {
+                      vai_tro: {
+                        is: {
+                          ten_vt: 'ADMIN'
+                        }
+                      }
+                    }
+                  });
+                  chuNhiemId = admin?.id || newUser.id;
+                }
+                
+                const newLop = await tx.lop.create({
+                  data: {
+                    ten_lop: `Lớp Sinh viên - ${new Date().getFullYear()}`,
+                    khoa: 'CNTT',
+                    nien_khoa: '2021-2025',
+                    nam_nhap_hoc: new Date(),
+                    chu_nhiem: chuNhiemId
+                  }
+                });
+                lopId = newLop.id;
+              }
+            }
+          } else {
+            // Kiểm tra nếu lớp đã có lớp trưởng và user muốn tạo lớp trưởng mới
+            if (validatedData.vai_tro === 'LOP_TRUONG') {
+              const existingLop = await tx.lop.findUnique({
+                where: { id: lopId },
+                include: { 
+                  lop_truong_rel: {
+                    include: { nguoi_dung: true }
+                  }
+                }
+              });
+              
+              if (existingLop?.lop_truong_rel) {
+                throw new Error(`Lớp ${existingLop.ten_lop} đã có lớp trưởng: ${existingLop.lop_truong_rel.nguoi_dung?.ho_ten || 'N/A'}`);
+              }
+            }
+          }
+
+          const sinhVien = await tx.sinhVien.create({
             data: {
               nguoi_dung_id: newUser.id,
-              mssv: validatedData.mssv,
-              ngay_sinh: validatedData.ngay_sinh ? new Date(validatedData.ngay_sinh) : null,
+              mssv: mssv,
+              ngay_sinh: validatedData.ngay_sinh ? new Date(validatedData.ngay_sinh) : new Date('2000-01-01'),
               gt: validatedData.gt || null,
-              lop_id: validatedData.lop_id || null,
-              dia_chi: validatedData.dia_chi || null,
+              lop_id: lopId,
+              dia_chi: validatedData.dia_chi || 'Chưa cập nhật',
               sdt: validatedData.sdt || null
             }
           });
+
+          // Nếu là lớp trưởng, cập nhật lớp để gán làm lớp trưởng
+          if (validatedData.vai_tro === 'LOP_TRUONG') {
+            await tx.lop.update({
+              where: { id: lopId },
+              data: { lop_truong: sinhVien.id }
+            });
+          }
         }
 
         return newUser;
       });
 
-      logger.info('User registered successfully', { 
+      logInfo('User registered successfully', { 
         userId: result.id, 
         username: validatedData.ten_dn 
       });
@@ -416,7 +562,8 @@ class UsersController {
           id: result.id,
           ten_dn: result.ten_dn,
           email: result.email,
-          ho_ten: result.ho_ten
+          ho_ten: result.ho_ten,
+          vai_tro: validatedData.vai_tro
         }
       }, 201);
 
@@ -425,8 +572,64 @@ class UsersController {
         return error(res, 'Dữ liệu không hợp lệ', 400, err.errors);
       }
       
-      logger.error('Error registering user:', err);
+      // Xử lý lỗi lớp đã có lớp trưởng
+      if (err.message && err.message.includes('đã có lớp trưởng')) {
+        return error(res, err.message, 400);
+      }
+      
+      logError('Error registering user:', err);
       return error(res, 'Lỗi khi đăng ký tài khoản', 500);
+    }
+  }
+
+  // Kiểm tra lớp có lớp trưởng chưa
+  async checkClassMonitor(req, res) {
+    try {
+      const { lopId } = req.params;
+      
+      if (!lopId) {
+        return error(res, 'ID lớp là bắt buộc', 400);
+      }
+      
+      const lop = await prisma.lop.findUnique({
+        where: { id: lopId },
+        include: {
+          lop_truong_rel: {
+            include: { 
+              nguoi_dung: {
+                select: {
+                  id: true,
+                  ho_ten: true,
+                  email: true
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      if (!lop) {
+        return error(res, 'Không tìm thấy lớp', 404);
+      }
+      
+      return success(res, {
+        hasMonitor: !!lop.lop_truong,
+        monitor: lop.lop_truong_rel && lop.lop_truong_rel.nguoi_dung ? {
+          id: lop.lop_truong_rel.id,
+          mssv: lop.lop_truong_rel.mssv,
+          ho_ten: lop.lop_truong_rel.nguoi_dung.ho_ten,
+          email: lop.lop_truong_rel.nguoi_dung.email
+        } : null,
+        lop: {
+          id: lop.id,
+          ten_lop: lop.ten_lop,
+          khoa: lop.khoa
+        }
+      });
+      
+    } catch (err) {
+      logError('Error checking class monitor:', err);
+      return error(res, 'Lỗi khi kiểm tra lớp trưởng', 500);
     }
   }
 

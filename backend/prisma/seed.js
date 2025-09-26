@@ -68,13 +68,15 @@ async function main() {
     { vt: vtAdmin, ten_dn: 'admin', email: 'admin@dlu.edu.vn', ho_ten: 'Quản Trị Viên', password: 'Admin@123' },
     { vt: vtGiangVien, ten_dn: 'gv001', email: 'nguyenvana@dlu.edu.vn', ho_ten: 'Nguyễn Văn A', password: 'Teacher@123' },
     { vt: vtGiangVien, ten_dn: 'gv002', email: 'lethib@dlu.edu.vn', ho_ten: 'Lê Thị B', password: 'Teacher@123' },
-    { vt: vtLopTruong, ten_dn: 'lt001', email: 'tranvanc@dlu.edu.vn', ho_ten: 'Trần Văn C', password: 'Monitor@123' },
-    { vt: vtLopTruong, ten_dn: 'lt002', email: 'phamthid@dlu.edu.vn', ho_ten: 'Phạm Thị D', password: 'Monitor@123' },
-    { vt: vtSinhVien, ten_dn: '2021001', email: '2021001@dlu.edu.vn', ho_ten: 'Hoàng Văn Nam', password: 'Student@123' },
-    { vt: vtSinhVien, ten_dn: '2021002', email: '2021002@dlu.edu.vn', ho_ten: 'Nguyễn Thị Mai', password: 'Student@123' },
+    // Lớp trưởng dùng chính MSSV làm tên đăng nhập
+    { vt: vtLopTruong, ten_dn: '2021001', email: '2021001@dlu.edu.vn', ho_ten: 'Trần Văn C', password: 'Monitor@123' },
+    { vt: vtLopTruong, ten_dn: '2021002', email: '2021002@dlu.edu.vn', ho_ten: 'Phạm Thị D', password: 'Monitor@123' },
+    // Sinh viên khác
     { vt: vtSinhVien, ten_dn: '2021003', email: '2021003@dlu.edu.vn', ho_ten: 'Lê Minh Tuấn', password: 'Student@123' },
     { vt: vtSinhVien, ten_dn: '2021004', email: '2021004@dlu.edu.vn', ho_ten: 'Trần Thị Lan', password: 'Student@123' },
     { vt: vtSinhVien, ten_dn: '2021005', email: '2021005@dlu.edu.vn', ho_ten: 'Phạm Văn Hùng', password: 'Student@123' },
+    { vt: vtSinhVien, ten_dn: '2021006', email: '2021006@dlu.edu.vn', ho_ten: 'Ngô Thị Hạnh', password: 'Student@123' },
+    { vt: vtSinhVien, ten_dn: '2021007', email: '2021007@dlu.edu.vn', ho_ten: 'Đỗ Quốc Toàn', password: 'Student@123' },
   ];
 
   const users = [];
@@ -95,9 +97,9 @@ async function main() {
   const adminUser = users.find((u) => u.ten_dn === 'admin');
   const giangVien1 = users.find((u) => u.ten_dn === 'gv001');
   const giangVien2 = users.find((u) => u.ten_dn === 'gv002');
-  const lopTruong1 = users.find((u) => u.ten_dn === 'lt001');
-  const lopTruong2 = users.find((u) => u.ten_dn === 'lt002');
-  const sinhViens = users.filter(u => u.ten_dn.startsWith('2021'));
+  const lopTruong1 = users.find((u) => u.ten_dn === '2021001');
+  const lopTruong2 = users.find((u) => u.ten_dn === '2021002');
+  const sinhViens = users.filter(u => u.ten_dn.startsWith('2021') && !['2021001','2021002'].includes(u.ten_dn));
 
   // 3) Tạo nhiều lớp học
   console.log('🏫 Creating classes...');
@@ -134,9 +136,12 @@ async function main() {
   const sinhVienData = [
     { user: lopTruong1, lop: lopCTK46A, mssv: '2021001', isLopTruong: true },
     { user: lopTruong2, lop: lopCTK46B, mssv: '2021002', isLopTruong: true },
-    { user: sinhViens[2], lop: lopCTK46A, mssv: '2021003', isLopTruong: false },
-    { user: sinhViens[3], lop: lopCTK46A, mssv: '2021004', isLopTruong: false },
-    { user: sinhViens[4], lop: lopCTK46B, mssv: '2021005', isLopTruong: false },
+    // Lấy lần lượt các SV còn lại gán vào lớp
+    { user: sinhViens.find(u=>u.ten_dn==='2021003'), lop: lopCTK46A, mssv: '2021003', isLopTruong: false },
+    { user: sinhViens.find(u=>u.ten_dn==='2021004'), lop: lopCTK46A, mssv: '2021004', isLopTruong: false },
+    { user: sinhViens.find(u=>u.ten_dn==='2021005'), lop: lopCTK46B, mssv: '2021005', isLopTruong: false },
+    { user: sinhViens.find(u=>u.ten_dn==='2021006'), lop: lopCTK46B, mssv: '2021006', isLopTruong: false },
+    { user: sinhViens.find(u=>u.ten_dn==='2021007'), lop: lopCTK46A, mssv: '2021007', isLopTruong: false },
   ];
 
   const createdSinhViens = [];
@@ -441,161 +446,8 @@ async function main() {
   }
   await prisma.thongBao.createMany({ data: thongBaoData, skipDuplicates: true });
 
-  // 11) QR Attendance Sessions cho các hoạt động đã duyệt
-  console.log('📱 Creating QR attendance sessions...');
-  const hoatDongDaDuyet = allHoatDongs.filter(hd => hd.trang_thai === 'da_duyet');
-  const attendanceSessionsData = [];
-  
-  for (const hd of hoatDongDaDuyet) {
-    // Tạo 2-3 buổi điểm danh cho mỗi hoạt động
-    const sessionCount = Math.floor(Math.random() * 2) + 2; // 2-3 sessions
-    for (let i = 0; i < sessionCount; i++) {
-      const sessionStart = new Date(hd.ngay_bd.getTime() + i * 2 * 60 * 60 * 1000); // Mỗi 2 tiếng
-      const sessionEnd = new Date(sessionStart.getTime() + 30 * 60 * 1000); // 30 phút
-      
-      attendanceSessionsData.push({
-        hd_id: hd.id,
-        ten_buoi: `Buổi ${i + 1} - ${hd.ten_hd}`,
-        mo_ta: `Buổi điểm danh thứ ${i + 1} của hoạt động ${hd.ten_hd}`,
-        tg_bat_dau: sessionStart,
-        tg_ket_thuc: sessionEnd,
-        qr_code: `QR_${hd.ma_hd}_SESSION_${i + 1}_${Date.now()}`,
-        qr_signature: `SIG_${hd.ma_hd}_${i + 1}_${Math.random().toString(36).substring(7)}`,
-        trang_thai: sessionEnd < currentDate ? 'expired' : 'active',
-        ip_whitelist: ['192.168.1.0/24', '10.0.0.0/8'],
-        gps_location: '10.8411,106.8097', // Tọa độ TP.HCM
-        gps_radius: 100,
-      });
-    }
-  }
-  
-  await prisma.attendanceSession.createMany({ data: attendanceSessionsData, skipDuplicates: true });
-  const createdSessions = await prisma.attendanceSession.findMany({
-    include: { hoat_dong: true }
-  });
-
-  // 12) QR Attendance Records
-  console.log('🎯 Creating QR attendance records...');
-  const qrAttendanceData = [];
-  
-  for (const session of createdSessions) {
-    // Lấy danh sách sinh viên đã đăng ký hoạt động này
-    const registeredStudents = await prisma.dangKyHoatDong.findMany({
-      where: { hd_id: session.hd_id, trang_thai_dk: 'da_duyet' },
-      include: { sinh_vien: true }
-    });
-    
-    // 70-90% sinh viên quét QR
-    const attendanceRate = 0.7 + Math.random() * 0.2;
-    const attendingStudents = registeredStudents.slice(0, Math.floor(registeredStudents.length * attendanceRate));
-    
-    for (const reg of attendingStudents) {
-      const qrScanTime = new Date(session.tg_bat_dau.getTime() + Math.random() * 20 * 60 * 1000); // Trong 20 phút đầu
-      const isVerified = Math.random() > 0.05; // 95% success rate
-      
-      qrAttendanceData.push({
-        session_id: session.id,
-        sv_id: reg.sv_id,
-        hd_id: session.hd_id,
-        tg_quet: qrScanTime,
-        dia_chi_ip: `192.168.1.${Math.floor(Math.random() * 254) + 1}`,
-        vi_tri_gps: `${10.8411 + (Math.random() - 0.5) * 0.001},${106.8097 + (Math.random() - 0.5) * 0.001}`,
-        device_info: {
-          userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)',
-          platform: 'iOS',
-          language: 'vi-VN'
-        },
-        trang_thai: isVerified ? 'verified' : 'failed',
-        error_message: isVerified ? null : 'GPS location outside allowed radius',
-        verified_at: isVerified ? new Date(qrScanTime.getTime() + 5000) : null,
-        points_awarded: isVerified ? session.hoat_dong.diem_rl : null,
-        points_awarded_at: isVerified ? new Date(qrScanTime.getTime() + 10000) : null,
-      });
-    }
-  }
-  
-  await prisma.qRAttendance.createMany({ data: qrAttendanceData, skipDuplicates: true });
-
-  // 13) Auto Point Calculations
-  console.log('🧮 Creating auto point calculations...');
-  const autoPointData = [];
-  
-  for (const hd of hoatDongDaDuyet) {
-    const totalAttendees = await prisma.qRAttendance.count({
-      where: { hd_id: hd.id, trang_thai: 'verified' }
-    });
-    
-    autoPointData.push({
-      hd_id: hd.id,
-      calculation_time: new Date(hd.ngay_kt.getTime() + 60 * 60 * 1000), // 1 giờ sau khi kết thúc
-      total_attendees: totalAttendees,
-      points_distributed: totalAttendees * hd.diem_rl,
-      is_completed: true,
-      error_log: null,
-      retry_count: 0,
-    });
-  }
-  
-  await prisma.autoPointCalculation.createMany({ data: autoPointData, skipDuplicates: true });
-
-  // 14) Notification Queue
-  console.log('📮 Creating notification queue...');
-  const notificationQueueData = [];
-  
-  // Thông báo tự động cho điểm danh
-  for (const qr of qrAttendanceData.slice(0, 10)) { // Chỉ tạo 10 thông báo mẫu
-    const student = await prisma.sinhVien.findUnique({
-      where: { id: qr.sv_id },
-      include: { nguoi_dung: true }
-    });
-    const activity = await prisma.hoatDong.findUnique({
-      where: { id: qr.hd_id }
-    });
-    
-    notificationQueueData.push({
-      recipient_id: student.nguoi_dung_id,
-      title: qr.trang_thai === 'verified' ? 'Điểm danh thành công' : 'Điểm danh không thành công',
-      message: qr.trang_thai === 'verified' 
-        ? `Bạn đã điểm danh thành công cho hoạt động "${activity.ten_hd}" và nhận được ${qr.points_awarded} điểm rèn luyện.`
-        : `Điểm danh cho hoạt động "${activity.ten_hd}" không thành công. Lý do: ${qr.error_message}`,
-      type: qr.trang_thai === 'verified' ? 'attendance_success' : 'attendance_failed',
-      priority: 'trung_binh',
-      scheduled_at: qr.verified_at || qr.tg_quet,
-      sent_at: qr.trang_thai === 'verified' ? new Date(qr.verified_at.getTime() + 30000) : null,
-      status: qr.trang_thai === 'verified' ? 'da_gui' : 'that_bai',
-      method: 'trong_he_thong',
-      metadata: {
-        activity_id: qr.hd_id,
-        session_id: qr.session_id,
-        points_awarded: qr.points_awarded
-      },
-      retry_count: qr.trang_thai === 'verified' ? 0 : 1,
-    });
-  }
-  
-  // Thông báo nhắc nhở đăng ký
-  for (const hd of allHoatDongs.filter(h => h.trang_thai === 'da_duyet' && new Date(h.han_dk) > currentDate)) {
-    for (const sv of createdSinhViens.slice(0, 3)) { // Chỉ 3 sinh viên đầu
-      notificationQueueData.push({
-        recipient_id: sv.nguoi_dung_id,
-        title: 'Nhắc nhở đăng ký hoạt động',
-        message: `Hoạt động "${hd.ten_hd}" sắp hết hạn đăng ký. Hạn cuối: ${hd.han_dk.toLocaleDateString('vi-VN')}. Đăng ký ngay để không bỏ lỡ!`,
-        type: 'registration_reminder',
-        priority: 'cao',
-        scheduled_at: new Date(hd.han_dk.getTime() - 24 * 60 * 60 * 1000), // 1 ngày trước hạn
-        sent_at: null,
-        status: 'cho_gui',
-        method: 'email',
-        metadata: {
-          activity_id: hd.id,
-          deadline: hd.han_dk
-        },
-        retry_count: 0,
-      });
-    }
-  }
-  
-  await prisma.notificationQueue.createMany({ data: notificationQueueData, skipDuplicates: true });
+  // 11+) Skip QR-related seeds as current schema doesn't include these models
+  console.log('⏭  Skipping QR session/attendance and auto-calculation seeds (not in current schema)');
 
   console.log('✨ Seed completed successfully!');
   console.log('📊 Summary:');
@@ -607,20 +459,19 @@ async function main() {
   console.log('- Created multiple registrations and attendance records');
   console.log(`- Created ${loaiThongBaos.length} notification types`);
   console.log('- Created sample notifications');
-  console.log(`- Created ${attendanceSessionsData.length} QR attendance sessions`);
-  console.log(`- Created ${qrAttendanceData.length} QR attendance records`);
-  console.log(`- Created ${autoPointData.length} auto point calculations`);
-  console.log(`- Created ${notificationQueueData.length} notification queue items`);
+  // Skipped QR seeds summary
   
   console.log('\n🔑 Login credentials:');
   console.log('Admin: admin / Admin@123');
   console.log('Teacher: gv001 / Teacher@123');
   console.log('Teacher: gv002 / Teacher@123');
-  console.log('Monitor: lt001 / Monitor@123');
-  console.log('Monitor: lt002 / Monitor@123');
+  console.log('Monitor (CTK46A): 2021001 / Monitor@123');
+  console.log('Monitor (CTK46B): 2021002 / Monitor@123');
   console.log('Student: 2021003 / Student@123');
   console.log('Student: 2021004 / Student@123');
   console.log('Student: 2021005 / Student@123');
+  console.log('Student: 2021006 / Student@123');
+  console.log('Student: 2021007 / Student@123');
   
   console.log('\n📈 Test Data Summary:');
   console.log('- All users have interconnected relationships');

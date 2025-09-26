@@ -61,7 +61,7 @@ class AdminController {
       };
 
       logInfo('Admin dashboard accessed', { userId: req.user.id, stats });
-      return sendResponse(res, 200, ApiResponse.success('Lấy dashboard thành công', stats));
+      return sendResponse(res, 200, ApiResponse.success(stats, 'Lấy dashboard thành công'));
 
     } catch (error) {
       logError('Error fetching admin dashboard', { error: error.message, userId: req.user?.id });
@@ -69,6 +69,51 @@ class AdminController {
     }
   }
 
+  // Xuất danh sách người dùng CSV (U20)
+  static async exportUsers(req, res) {
+    try {
+      const { search, role, status } = req.query || {};
+      const whereCondition = {};
+      if (search) {
+        whereCondition.OR = [
+          { ho_ten: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { ten_dn: { contains: search, mode: 'insensitive' } }
+        ];
+      }
+      if (role) {
+        const vaiTro = await prisma.vaiTro.findFirst({ where: { ten_vt: role } });
+        if (vaiTro) whereCondition.vai_tro_id = vaiTro.id;
+      }
+      if (status) whereCondition.trang_thai = status;
+
+      const users = await prisma.nguoiDung.findMany({
+        where: whereCondition,
+        include: { vai_tro: true, sinh_vien: { include: { lop: true } } },
+        orderBy: { ngay_tao: 'desc' }
+      });
+
+      const headers = ['Maso','HoTen','Email','VaiTro','TrangThai','Lop','Khoa','NgayTao'];
+      const rows = users.map(u => [
+        u.ten_dn,
+        u.ho_ten || '',
+        u.email,
+        u.vai_tro?.ten_vt || '',
+        u.trang_thai,
+        u.sinh_vien?.lop?.ten_lop || '',
+        u.sinh_vien?.lop?.khoa || '',
+        (u.ngay_tao || '').toISOString?.() || ''
+      ]);
+      const csv = [headers.join(','), ...rows.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(','))].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+      return res.status(200).send('\uFEFF' + csv);
+    } catch (error) {
+      logError('Error export users', { error: error.message });
+      return sendResponse(res, 500, ApiResponse.error('Lỗi xuất người dùng'));
+    }
+  }
   // Lấy danh sách người dùng với phân trang và lọc
   static async getUsers(req, res) {
     try {
@@ -129,7 +174,7 @@ class AdminController {
       }));
 
       const result = {
-        data: transformedUsers,
+        users: transformedUsers,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -139,7 +184,7 @@ class AdminController {
       };
 
       logInfo('Users list fetched', { userId: req.user.id, total });
-      return sendResponse(res, 200, ApiResponse.success('Lấy danh sách người dùng thành công', transformedUsers));
+      return sendResponse(res, 200, ApiResponse.success(result, 'Lấy danh sách người dùng thành công'));
 
     } catch (error) {
       logError('Error fetching users', { error: error.message, userId: req.user?.id });

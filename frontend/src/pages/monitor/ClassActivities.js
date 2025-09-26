@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Edit, Trash2, Eye, Plus, Search, Filter, Users, Clock, MapPin, Award, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import http from '../../services/http';
-import ClassManagementLayout from '../../components/ClassManagementLayout';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function ClassActivities() {
+  const { showSuccess, showError, showWarning, confirm } = useNotification();
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -11,6 +12,8 @@ export default function ClassActivities() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editActivity, setEditActivity] = useState(null);
   const [error, setError] = useState('');
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // Status mappings
   const statusLabels = {
@@ -43,6 +46,7 @@ export default function ClassActivities() {
       setError('');
     } catch (err) {
       console.error('Error loading class activities:', err);
+      showError('Không thể tải danh sách hoạt động', 'Lỗi tải dữ liệu');
       setError('Không thể tải danh sách hoạt động');
       setActivities([]);
     } finally {
@@ -59,22 +63,31 @@ export default function ClassActivities() {
   };
 
   const handleDeleteActivity = async (activity) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa hoạt động "${activity.ten_hd}"?`)) {
+    const confirmed = await confirm({
+      title: 'Xác nhận xóa hoạt động',
+      message: `Bạn có chắc chắn muốn xóa hoạt động "${activity.ten_hd}"? Hành động này không thể hoàn tác.`,
+      confirmText: 'Xóa',
+      cancelText: 'Hủy'
+    });
+
+    if (!confirmed) {
       return;
     }
 
     try {
       await http.delete(`/activities/${activity.id}`);
       await loadActivities();
-      alert('Xóa hoạt động thành công!');
+      showSuccess(`Đã xóa hoạt động "${activity.ten_hd}" thành công`, 'Xóa hoạt động');
     } catch (err) {
       console.error('Error deleting activity:', err);
-      alert('Lỗi khi xóa hoạt động: ' + (err.response?.data?.message || err.message));
+      const errorMessage = err.response?.data?.message || err.message || 'Không thể xóa hoạt động';
+      showError(errorMessage, 'Lỗi xóa hoạt động');
     }
   };
 
   const handleViewDetails = (activity) => {
-    window.location.href = `/activities/${activity.id}`;
+    setSelectedActivity(activity);
+    setIsDetailModalOpen(true);
   };
 
   // Filter activities based on search term and status
@@ -169,7 +182,7 @@ export default function ClassActivities() {
   }
 
   return (
-    <ClassManagementLayout role="lop_truong">
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -221,16 +234,6 @@ export default function ClassActivities() {
             </div>
           </div>
         </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-              <span className="text-red-700">{error}</span>
-            </div>
-          </div>
-        )}
 
         {/* Activities List */}
         {filteredActivities.length > 0 ? (
@@ -291,6 +294,104 @@ export default function ClassActivities() {
           </div>
         </div>
       </div>
-    </ClassManagementLayout>
+
+      {/* Detail Modal */}
+      {isDetailModalOpen && (
+        <ActivityDetailModal
+          activity={selectedActivity}
+          onClose={() => setIsDetailModalOpen(false)}
+          onEdit={handleEditActivity}
+        />
+      )}
+    </>
   );
 }
+
+// Modal Component for Activity Details
+const ActivityDetailModal = ({ activity, onClose, onEdit }) => {
+  if (!activity) return null;
+
+  const statusLabels = {
+    'cho_duyet': 'Chờ duyệt', 'da_duyet': 'Đã duyệt', 'tu_choi': 'Từ chối',
+    'dang_dien_ra': 'Đang diễn ra', 'hoan_thanh': 'Hoàn thành', 'huy': 'Đã hủy'
+  };
+
+  const statusColors = {
+    'cho_duyet': 'bg-yellow-100 text-yellow-800', 'da_duyet': 'bg-green-100 text-green-800',
+    'tu_choi': 'bg-red-100 text-red-800', 'dang_dien_ra': 'bg-blue-100 text-blue-800',
+    'hoan_thanh': 'bg-purple-100 text-purple-800', 'huy': 'bg-gray-100 text-gray-800'
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b">
+          <h2 className="text-xl font-bold text-gray-900">Chi tiết hoạt động</h2>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <div className="p-6 overflow-y-auto space-y-4">
+          <h3 className="text-2xl font-semibold text-gray-800">{activity.ten_hd}</h3>
+          <div>
+            <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${statusColors[activity.trang_thai]}`}>
+              {statusLabels[activity.trang_thai]}
+            </span>
+          </div>
+          <p className="text-gray-600 whitespace-pre-wrap">{activity.mo_ta}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+            <div className="flex items-start text-gray-700">
+              <Calendar className="h-5 w-5 mr-3 flex-shrink-0 mt-1" />
+              <div>
+                <p className="font-medium">Ngày bắt đầu</p>
+                <p>{new Date(activity.ngay_bd).toLocaleDateString('vi-VN')}</p>
+              </div>
+            </div>
+            <div className="flex items-start text-gray-700">
+              <Clock className="h-5 w-5 mr-3 flex-shrink-0 mt-1" />
+              <div>
+                <p className="font-medium">Thời gian</p>
+                <p>{new Date(activity.ngay_bd).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+              </div>
+            </div>
+            <div className="flex items-start text-gray-700">
+              <MapPin className="h-5 w-5 mr-3 flex-shrink-0 mt-1" />
+              <div>
+                <p className="font-medium">Địa điểm</p>
+                <p>{activity.dia_diem}</p>
+              </div>
+            </div>
+            <div className="flex items-start text-green-700">
+              <Award className="h-5 w-5 mr-3 flex-shrink-0 mt-1" />
+              <div>
+                <p className="font-medium">Điểm rèn luyện</p>
+                <p>{activity.diem_rl} điểm</p>
+              </div>
+            </div>
+            <div className="flex items-start text-gray-700">
+              <Users className="h-5 w-5 mr-3 flex-shrink-0 mt-1" />
+              <div>
+                <p className="font-medium">Số lượng đăng ký</p>
+                <p>{activity.registrationCount || 0} sinh viên</p>
+              </div>
+            </div>
+            <div className="flex items-start text-gray-700">
+              <Filter className="h-5 w-5 mr-3 flex-shrink-0 mt-1" />
+              <div>
+                <p className="font-medium">Loại hoạt động</p>
+                <p>{activity.loai_hd?.ten_loai_hd}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end items-center p-4 border-t bg-gray-50">
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 mr-2">
+            Đóng
+          </button>
+          <button onClick={() => { onEdit(activity); onClose(); }} className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 flex items-center">
+            <Edit className="h-4 w-4 mr-2" />
+            Chỉnh sửa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -1,6 +1,7 @@
 // src/pages/admin/AdminDashboard.js
 import { useState, useEffect } from 'react';
 import http from '../../services/http';
+import AdminLayout from '../../components/AdminLayout';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
@@ -11,6 +12,7 @@ const AdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingRegs, setPendingRegs] = useState([]);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -19,32 +21,28 @@ const AdminDashboard = () => {
   const fetchDashboardStats = async () => {
     try {
       setLoading(true);
-      
-      // Use existing APIs instead of non-existent admin dashboard API
-      const [usersRes, activitiesRes] = await Promise.all([
-        http.get('/api/users').catch(err => ({ data: { data: [] } })),
-        http.get('/api/activities').catch(err => ({ data: { data: [] } }))
+      const [res, pendingRes] = await Promise.all([
+        http.get('/api/admin/dashboard'),
+        http.get('/api/admin/registrations', { params: { page: 1, limit: 5, status: 'cho_duyet' } }).catch(() => ({ data: { data: { items: [] } } }))
       ]);
-
-      const users = usersRes.data?.data || [];
-      const activities = activitiesRes.data?.data || [];
-      
+      const payload = res?.data?.data || res?.data || {};
       setStats({
-        totalUsers: users.length,
-        totalActivities: activities.length,
-        totalRegistrations: activities.reduce((sum, activity) => sum + (activity.registrationCount || 0), 0),
-        pendingApprovals: activities.filter(a => a.trang_thai === 'cho_duyet').length
+        totalUsers: Number(payload.totalUsers || 0),
+        totalActivities: Number(payload.totalActivities || 0),
+        totalRegistrations: Number(payload.totalRegistrations || 0),
+        pendingApprovals: Number(payload.pendingApprovals || 0)
       });
-      
+      const items = pendingRes?.data?.data?.items || [];
+      setPendingRegs(Array.isArray(items) ? items : []);
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      // Set fallback data instead of error
+      console.error('Error fetching admin dashboard stats:', error);
       setStats({
         totalUsers: 0,
         totalActivities: 0,
         totalRegistrations: 0,
         pendingApprovals: 0
       });
+      setPendingRegs([]);
     } finally {
       setLoading(false);
     }
@@ -67,11 +65,12 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard Quản Trị</h1>
-      
+    <AdminLayout active="dashboard">
+    <div className="p-6 space-y-6">
+      <h1 className="text-3xl font-bold text-gray-900">Dashboard Quản Trị</h1>
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -170,10 +169,41 @@ const AdminDashboard = () => {
         </div>
       </div>
 
+      {/* Pending registrations (preview) */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium text-gray-900">Đăng ký chờ duyệt gần nhất</h2>
+          <button onClick={() => window.location.href = '/admin/approvals'} className="text-blue-600">Xem tất cả</button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left border-b">
+                <th className="px-3 py-2">Sinh viên</th>
+                <th className="px-3 py-2">Hoạt động</th>
+                <th className="px-3 py-2">Ngày đăng ký</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingRegs.map(r => (
+                <tr key={r.id} className="border-b">
+                  <td className="px-3 py-2">{r.sinh_vien?.nguoi_dung?.ho_ten || ''}</td>
+                  <td className="px-3 py-2">{r.hoat_dong?.ten_hd || ''}</td>
+                  <td className="px-3 py-2">{r.ngay_dang_ky ? new Date(r.ngay_dang_ky).toLocaleString() : ''}</td>
+                </tr>
+              ))}
+              {pendingRegs.length === 0 && (
+                <tr><td className="px-3 py-3" colSpan={3}>Không có đăng ký chờ duyệt</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Thao Tác Nhanh</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <button 
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
             onClick={() => window.location.href = '/admin/users'}
@@ -192,9 +222,28 @@ const AdminDashboard = () => {
           >
             Phê Duyệt Đăng Ký
           </button>
+          <button 
+            className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-md transition-colors"
+            onClick={() => window.location.href = '/admin/roles'}
+          >
+            Quản Lý Vai Trò
+          </button>
+          <button 
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors"
+            onClick={() => window.location.href = '/admin/activity-types'}
+          >
+            Loại Hoạt Động
+          </button>
+          <a 
+            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md transition-colors text-center"
+            href={(function(){ const base=(typeof window!=='undefined'?(process.env.REACT_APP_API_URL||'http://localhost:3001/api'):'').replace(/\/$/,''); return base + '/admin/users/export'; })()}
+          >
+            Xuất Người Dùng
+          </a>
         </div>
       </div>
     </div>
+    </AdminLayout>
   );
 };
 

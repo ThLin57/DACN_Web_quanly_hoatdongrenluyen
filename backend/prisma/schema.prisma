@@ -47,17 +47,7 @@ enum TrangThaiThamGia {
   ve_som
 }
 
-enum TrangThaiAttendanceSession {
-  active
-  expired
-  closed
-}
-
-enum TrangThaiQRAttendance {
-  pending
-  verified
-  failed
-}
+// Removed enums related to QR/AttendanceSession
 
 enum MucDoUuTien {
   thap
@@ -181,7 +171,6 @@ model SinhVien {
   lop_truong Lop[]     @relation("LopTruongLop")
   dang_ky_hd DangKyHoatDong[]
   diem_danh  DiemDanh[]
-  qr_attendance QRAttendance[]
 
   @@map("sinh_vien")
 }
@@ -231,9 +220,6 @@ model HoatDong {
   nguoi_tao  NguoiDung    @relation("NguoiTaoHoatDong", fields: [nguoi_tao_id], references: [id])
   dang_ky_hd DangKyHoatDong[]
   diem_danh  DiemDanh[]
-  attendance_sessions AttendanceSession[]
-  qr_attendance QRAttendance[]
-  auto_point_calculations AutoPointCalculation[]
 
   @@map("hoat_dong")
 }
@@ -309,87 +295,6 @@ model ThongBao {
 }
 
 // QR attendance sessions for activities
-model AttendanceSession {
-  id            String                      @id @default(uuid()) @db.Uuid
-  hd_id         String                      @db.Uuid
-  ten_buoi      String                      @db.VarChar(100)
-  mo_ta         String?                     @db.Text
-  tg_bat_dau    DateTime                    @db.Timestamp(6)
-  tg_ket_thuc   DateTime                    @db.Timestamp(6)
-  qr_code       String                      @unique @db.VarChar(500)
-  qr_signature  String                      @db.VarChar(500)
-  trang_thai    TrangThaiAttendanceSession  @default(active)
-  ip_whitelist  String[]                    @default([])
-  gps_location  String?                     @db.VarChar(100)
-  gps_radius    Int?                        @default(100) // meters
-  ngay_tao      DateTime                    @default(now()) @db.Timestamp(6)
-  ngay_cap_nhat DateTime                    @default(now()) @updatedAt @db.Timestamp(6)
-
-  hoat_dong     HoatDong      @relation(fields: [hd_id], references: [id], onDelete: Cascade)
-  qr_attendance QRAttendance[]
-
-  @@map("attendance_session")
-}
-
-// QR code attendance records
-model QRAttendance {
-  id                   String               @id @default(uuid()) @db.Uuid
-  session_id           String               @db.Uuid
-  sv_id                String               @db.Uuid
-  hd_id                String               @db.Uuid
-  tg_quet              DateTime             @default(now()) @db.Timestamp(6)
-  dia_chi_ip           String?              @db.Inet
-  vi_tri_gps           String?              @db.VarChar(100)
-  device_info          Json?                @db.JsonB
-  trang_thai           TrangThaiQRAttendance @default(pending)
-  error_message        String?              @db.Text
-  verified_at          DateTime?            @db.Timestamp(6)
-  points_awarded       Decimal?             @db.Decimal(4, 2)
-  points_awarded_at    DateTime?            @db.Timestamp(6)
-
-  session               AttendanceSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
-  sinh_vien            SinhVien          @relation(fields: [sv_id], references: [id])
-  hoat_dong            HoatDong          @relation(fields: [hd_id], references: [id])
-
-  @@unique([session_id, sv_id])
-  @@unique([sv_id, hd_id])
-  @@map("qr_attendance")
-}
-
-// Auto point calculation tracking
-model AutoPointCalculation {
-  id                String    @id @default(uuid()) @db.Uuid
-  hd_id             String    @db.Uuid
-  calculation_time  DateTime  @default(now()) @db.Timestamp(6)
-  total_attendees   Int       @default(0)
-  points_distributed Decimal  @default(0.00) @db.Decimal(10, 2)
-  is_completed      Boolean   @default(false)
-  error_log         String?   @db.Text
-  retry_count       Int       @default(0)
-
-  hoat_dong         HoatDong  @relation(fields: [hd_id], references: [id], onDelete: Cascade)
-
-  @@unique([hd_id])
-  @@map("auto_point_calculation")
-}
-
-// Notification queue for system notifications
-model NotificationQueue {
-  id            String        @id @default(uuid()) @db.Uuid
-  recipient_id  String        @db.Uuid
-  title         String        @db.VarChar(200)
-  message       String        @db.Text
-  type          String        @db.VarChar(50)
-  priority      MucDoUuTien   @default(trung_binh)
-  scheduled_at  DateTime      @db.Timestamp(6)
-  sent_at       DateTime?     @db.Timestamp(6)
-  status        TrangThaiGui  @default(cho_gui)
-  method        PhuongThucGui @default(trong_he_thong)
-  metadata      Json?         @db.JsonB
-  retry_count   Int           @default(0)
-  ngay_tao      DateTime      @default(now()) @db.Timestamp(6)
-
-  @@map("notification_queue")
-}
+// Removed AttendanceSession, QRAttendance, AutoPointCalculation, NotificationQueue
 
 

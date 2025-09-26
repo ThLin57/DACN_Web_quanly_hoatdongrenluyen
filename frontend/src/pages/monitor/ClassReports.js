@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, Users, Calendar, Award, Download, RefreshCw, Filter, BarChart3, PieChart as PieIcon, LineChart as LineIcon, FileText, AlertCircle } from 'lucide-react';
 import http from '../../services/http';
-import ClassManagementLayout from '../../components/ClassManagementLayout';
 
 export default function ClassReports() {
   const [reportData, setReportData] = useState(null);
@@ -176,7 +175,7 @@ export default function ClassReports() {
   }
 
   return (
-    <ClassManagementLayout role="lop_truong">
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -451,6 +450,6 @@ export default function ClassReports() {
           </div>
         </div>
       </div>
-    </ClassManagementLayout>
+    </>
   );
 }

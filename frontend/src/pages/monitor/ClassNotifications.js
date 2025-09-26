@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Bell, Send, Users, Activity, AlertCircle } from 'lucide-react';
 import http from '../../services/http';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function ClassNotifications() {
+  const { showSuccess, showError } = useNotification();
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [scope, setScope] = useState('class'); // 'class' | 'activity'
@@ -46,20 +48,21 @@ export default function ClassNotifications() {
         phuong_thuc_gui: 'trong_he_thong'
       };
       await http.post('/notifications', payload);
-      setSuccess('Đã gửi thông báo thành công');
+      showSuccess('Đã gửi thông báo thành công');
       setTitle('');
       setMessage('');
       setActivityId('');
     } catch (err) {
       const apiMsg = err?.response?.data?.message;
-      setError(apiMsg ? String(apiMsg) : 'Không thể gửi thông báo');
+      showError(apiMsg ? String(apiMsg) : 'Không thể gửi thông báo');
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <>
+      <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gửi thông báo</h1>
@@ -110,7 +113,8 @@ export default function ClassNotifications() {
           </button>
         </div>
       </form>
-    </div>
+      </div>
+    </>
   );
 }
 

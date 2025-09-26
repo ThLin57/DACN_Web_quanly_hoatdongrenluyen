@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import AdminUserTabs from '../../components/AdminUserTabs';
 import Header from '../../components/Header';
-import Sidebar from '../../components/Sidebar';
 import { User, Edit3, Save, X, Key, Eye, EyeOff } from 'lucide-react';
 import http from '../../services/http';
 import { useAppStore } from '../../store/useAppStore';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function AdminUserProfile() {
+  const { showSuccess, showError } = useNotification();
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -95,12 +96,12 @@ export default function AdminUserProfile() {
       };
       
       await http.put(`/admin/users/${selectedUser.id}`, updateData);
-      alert('Cập nhật thông tin thành công!');
+      showSuccess('Cập nhật thông tin thành công', 'Thành công', 12000);
       setEditing(false);
       fetchUsers();
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Lỗi cập nhật thông tin!');
+      showError('Lỗi cập nhật thông tin!');
     }
   };
 
@@ -213,15 +214,12 @@ export default function AdminUserProfile() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="flex">
-          <Sidebar role={role} />
-          <main className="flex-1">
-            <AdminUserTabs />
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-            </div>
-          </main>
-        </div>
+        <main className="max-w-7xl mx-auto">
+          <AdminUserTabs />
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -229,11 +227,9 @@ export default function AdminUserProfile() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <div className="flex">
-        <Sidebar role={role} />
-        <main className="flex-1">
-          <AdminUserTabs />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-7xl mx-auto">
+        <AdminUserTabs />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* User List Sidebar */}
               <div className="lg:col-span-1">
@@ -330,9 +326,8 @@ export default function AdminUserProfile() {
                 )}
               </div>
             </div>
-          </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

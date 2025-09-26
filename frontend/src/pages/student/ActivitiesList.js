@@ -1,8 +1,11 @@
 import React from 'react';
 import { Search, Filter, Calendar, MapPin, Users, Clock, Award, Eye, UserPlus, ChevronRight, Grid3X3, List, SlidersHorizontal, ChevronLeft } from 'lucide-react';
 import http from '../../services/http';
+import { useNotification } from '../../contexts/NotificationContext';
+import ActivityDetailModal from '../../components/ActivityDetailModal';
 
 export default function ActivitiesList(){
+  const { showSuccess, showError, confirm } = useNotification();
   const [query, setQuery] = React.useState('');
   const [filters, setFilters] = React.useState({ type: '', status: '', from: '', to: '' });
   const [items, setItems] = React.useState([]);
@@ -13,6 +16,8 @@ export default function ActivitiesList(){
   const [showFilters, setShowFilters] = React.useState(false);
   const [pagination, setPagination] = React.useState({ page: 1, limit: 12, total: 0 });
   const [role, setRole] = React.useState('');
+  const [selectedActivityId, setSelectedActivityId] = React.useState(null);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   React.useEffect(function(){
     loadActivities();
@@ -110,23 +115,40 @@ export default function ActivitiesList(){
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page when filtering
   }
 
-  function handleRegister(activityId, activityName) {
-    if (!window.confirm(`Bạn có chắc muốn đăng ký tham gia "${activityName}"?`)) return;
+  async function handleRegister(activityId, activityName) {
+    const confirmed = await confirm({
+      title: 'Xác nhận đăng ký',
+      message: `Bạn có chắc muốn đăng ký tham gia "${activityName}"?`,
+      confirmText: 'Đăng ký',
+      cancelText: 'Hủy'
+    });
     
-    http.post(`/activities/${activityId}/register`)
-      .then(function(res){
-        if (res.data?.success) {
-          alert('Đã gửi đăng ký thành công! Vui lòng chờ phê duyệt.');
-          loadActivities(); // Reload to update registration status
-        } else {
-          alert(res.data?.message || 'Đăng ký thành công nhưng chưa rõ trạng thái.');
-        }
-      })
+    if (!confirmed) return;
+    
+      http.post(`/activities/${activityId}/register`)
+        .then(function(res){
+          if (res.data?.success) {
+            showSuccess('Đăng ký thành công', 'Thành công', 12000);
+            loadActivities(); // Reload to update registration status
+          } else {
+            showSuccess(res.data?.message || 'Đăng ký thành công', 'Thông báo', 10000);
+          }
+        })
       .catch(function(err){ 
         const firstValidation = err?.response?.data?.errors?.[0]?.message;
         const errorMsg = firstValidation || err?.response?.data?.message || err?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
-        alert(errorMsg); 
+        showError(errorMsg); 
       });
+  }
+
+  function handleViewDetail(activityId) {
+    setSelectedActivityId(activityId);
+    setIsModalOpen(true);
+  }
+
+  function handleCloseModal() {
+    setIsModalOpen(false);
+    setSelectedActivityId(null);
   }
 
   function handlePageChange(newPage) {
@@ -196,25 +218,26 @@ export default function ActivitiesList(){
                 }, `+${activity.diem_rl || 0} điểm`)
               ])
             ]),
-            React.createElement('div', { key: 'details', className: 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-2' }, [
+        React.createElement('div', { key: 'details', className: 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-2' }, [
               React.createElement('div', { key: 'time', className: 'flex items-center text-sm text-gray-600' }, [
-                React.createElement(Clock, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-                React.createElement('div', {}, [
-                  React.createElement('div', {}, startDate.toLocaleDateString('vi-VN')),
-                  React.createElement('div', { className: 'text-xs text-gray-500' }, 
+                React.createElement(Clock, { key: 'time-icon', className: 'h-4 w-4 mr-2 text-gray-400' }),
+                React.createElement('div', { key: 'time-wrap' }, [
+                  React.createElement('div', { key: 'time-date' }, startDate.toLocaleDateString('vi-VN')),
+                  React.createElement('div', { key: 'time-hour', className: 'text-xs text-gray-500' }, 
                     startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }))
                 ])
               ]),
               React.createElement('div', { key: 'location', className: 'flex items-center text-sm text-gray-600' }, [
-                React.createElement(MapPin, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-                React.createElement('span', {}, activity.dia_diem || 'Chưa xác định')
+                React.createElement(MapPin, { key: 'loc-icon', className: 'h-4 w-4 mr-2 text-gray-400' }),
+                React.createElement('span', { key: 'loc-text' }, activity.dia_diem || 'Chưa xác định')
               ]),
               React.createElement('div', { key: 'organizer', className: 'flex items-center text-sm text-gray-600' }, [
-                React.createElement(Users, { className: 'h-4 w-4 mr-2 text-gray-400' }),
-                React.createElement('span', {}, activity.don_vi_to_chuc || 'Nhà trường')
+                React.createElement(Users, { key: 'org-icon', className: 'h-4 w-4 mr-2 text-gray-400' }),
+                React.createElement('span', { key: 'org-text' }, activity.don_vi_to_chuc || 'Nhà trường')
             ]),
             (isDeadlinePast || isAfterStart) && React.createElement('div', { key: 'deadline-badge', className: 'mt-2' }, [
               React.createElement('span', { 
+                key: 'deadline-pill',
                 className: 'px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200'
               }, 'Đã quá hạn đăng ký')
             ])
@@ -234,7 +257,7 @@ export default function ActivitiesList(){
             ]),
             React.createElement('button', { 
               key: 'detail',
-              onClick: () => window.location.href = `/activities/${activity.id}`,
+              onClick: () => handleViewDetail(activity.id),
               className: 'flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium'
             }, [
               React.createElement(Eye, { className: 'h-4 w-4' }),
@@ -286,9 +309,10 @@ export default function ActivitiesList(){
           ])
         ]),
         
-        React.createElement('div', { key: 'time-status', className: 'mb-4 flex items-center gap-2 flex-wrap' }, [
-          React.createElement('span', { className: `text-sm font-medium ${timeStatusColor}` }, timeStatus),
+      React.createElement('div', { key: 'time-status', className: 'mb-4 flex items-center gap-2 flex-wrap' }, [
+          React.createElement('span', { key: 'status-text', className: `text-sm font-medium ${timeStatusColor}` }, timeStatus),
           isDeadlinePast && React.createElement('span', { 
+            key: 'deadline-text',
             className: 'px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200'
           }, 'Đã quá hạn đăng ký')
         ])
@@ -305,7 +329,7 @@ export default function ActivitiesList(){
         ]),
         React.createElement('button', { 
           key: 'detail',
-          onClick: () => window.location.href = `/activities/${activity.id}`,
+          onClick: () => handleViewDetail(activity.id),
           className: `flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${canRegister ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-600 text-white hover:bg-blue-700 flex-1'}`
         }, [
           React.createElement(Eye, { className: 'h-4 w-4' }),
@@ -549,7 +573,15 @@ export default function ActivitiesList(){
           React.createElement(ChevronRight, { className: 'h-4 w-4' })
         ])
       ])
-    ])
+    ]),
+
+    // Activity Detail Modal
+    React.createElement(ActivityDetailModal, {
+      key: 'activity-modal',
+      activityId: selectedActivityId,
+      isOpen: isModalOpen,
+      onClose: handleCloseModal
+    })
   ]);
 }
 

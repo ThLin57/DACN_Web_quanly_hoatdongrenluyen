@@ -9,6 +9,9 @@ const router = Router();
 // U2: Đăng ký tài khoản
 router.post('/register', usersController.register);
 
+// Kiểm tra lớp có lớp trưởng chưa (public)
+router.get('/check-class-monitor/:lopId', usersController.checkClassMonitor);
+
 // Protected routes (cần đăng nhập)
 router.use(authMiddleware);
 

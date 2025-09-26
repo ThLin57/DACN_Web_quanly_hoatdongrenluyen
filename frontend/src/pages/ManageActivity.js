@@ -2,6 +2,8 @@ import React from 'react';
 import { Calendar, MapPin, Award, Users, FileText, Info } from 'lucide-react';
 import http from '../services/http';
 import ClassManagementLayout from '../components/ClassManagementLayout';
+import Header from '../components/Header';
+import { useParams, useLocation } from 'react-router-dom';
 
 export default function ManageActivity(){
   // Helpers to prefill học kỳ và năm học
@@ -16,6 +18,11 @@ export default function ManageActivity(){
     const start = today.getMonth() + 1 >= 9 ? year : year - 1;
     return `${start}-${start + 1}`;
   }
+
+  const params = useParams();
+  const location = useLocation();
+  const isAdminRoute = typeof location?.pathname === 'string' && location.pathname.startsWith('/admin');
+  const isEditMode = Boolean(params?.id);
 
   const [form, setForm] = React.useState({
     ten_hd: '',
@@ -35,6 +42,41 @@ export default function ManageActivity(){
   const [success, setSuccess] = React.useState('');
   const [error, setError] = React.useState('');
   const [fieldErrors, setFieldErrors] = React.useState({});
+  const tenHdRef = React.useRef(null);
+  const diaDiemRef = React.useRef(null);
+
+  // Dedicated handlers to avoid any unintended interference on generic handler
+  const onChangeTenHd = React.useCallback(function(e){
+    const el = e.target;
+    const v = el.value;
+    const caret = el.selectionStart || v.length;
+    setForm(function(prev){ return Object.assign({}, prev, { ten_hd: v }); });
+    setFieldErrors(function(prev){ const next = Object.assign({}, prev); delete next.ten_hd; return next; });
+    // Restore focus & caret to avoid losing focus after re-render
+    requestAnimationFrame(function(){
+      if (tenHdRef.current) {
+        try {
+          tenHdRef.current.focus();
+          tenHdRef.current.setSelectionRange(caret, caret);
+        } catch(_) {}
+      }
+    });
+  }, []);
+  const onChangeDiaDiem = React.useCallback(function(e){
+    const el = e.target;
+    const v = el.value;
+    const caret = el.selectionStart || v.length;
+    setForm(function(prev){ return Object.assign({}, prev, { dia_diem: v }); });
+    setFieldErrors(function(prev){ const next = Object.assign({}, prev); delete next.dia_diem; return next; });
+    requestAnimationFrame(function(){
+      if (diaDiemRef.current) {
+        try {
+          diaDiemRef.current.focus();
+          diaDiemRef.current.setSelectionRange(caret, caret);
+        } catch(_) {}
+      }
+    });
+  }, []);
 
   React.useEffect(function(){
     let mounted = true;
@@ -43,6 +85,51 @@ export default function ManageActivity(){
       .catch(function(){ /* ignore */ });
     return function(){ mounted = false; };
   }, []);
+
+  // Load activity detail in edit mode and prefill form
+  React.useEffect(function(){
+    let mounted = true;
+    async function loadDetail(){
+      if (!isEditMode) return;
+      try {
+        const res = await http.get(`/activities/${params.id}`);
+        const d = res?.data?.data;
+        if (!d) return;
+        // Map type name -> id using loaded types
+        let loaiId = '';
+        try {
+          const t = (types || []).find(function(x){ return (x.name || x.ten_loai_hd) === d.loai; });
+          if (t) loaiId = t.id;
+        } catch(_) {}
+        const pad = function(value){
+          // Convert ISO to input datetime-local (YYYY-MM-DDTHH:mm)
+          if (!value) return '';
+          const dt = new Date(value);
+          const yyyy = dt.getFullYear();
+          const mm = String(dt.getMonth() + 1).padStart(2, '0');
+          const dd = String(dt.getDate()).padStart(2, '0');
+          const hh = String(dt.getHours()).padStart(2, '0');
+          const mi = String(dt.getMinutes()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+        };
+        if (mounted) setForm(function(prev){ return Object.assign({}, prev, {
+          ten_hd: d.ten_hd || '',
+          loai_hd_id: loaiId || prev.loai_hd_id,
+          mo_ta: d.mo_ta || '',
+          ngay_bd: pad(d.ngay_bd),
+          ngay_kt: pad(d.ngay_kt),
+          han_dk: pad(d.han_dk),
+          diem_rl: typeof d.diem_rl === 'number' ? d.diem_rl : Number(d.diem_rl || 0),
+          dia_diem: d.dia_diem || '',
+          sl_toi_da: typeof d.sl_toi_da === 'number' ? d.sl_toi_da : Number(d.sl_toi_da || 50)
+        }); });
+      } catch (e) {
+        if (mounted) setError('Không thể tải chi tiết hoạt động');
+      }
+    }
+    loadDetail();
+    return function(){ mounted = false; };
+  }, [isEditMode, params?.id, types]);
 
   function onChange(e){
     const { name, value } = e.target;
@@ -53,6 +140,7 @@ export default function ManageActivity(){
   function validate(){
     const errs = {};
     if(!form.ten_hd?.trim()) errs.ten_hd = 'Vui lòng nhập tên hoạt động';
+    if(form.ten_hd && form.ten_hd.trim().length < 3) errs.ten_hd = 'Tên hoạt động tối thiểu 3 ký tự';
     if(!form.loai_hd_id) errs.loai_hd_id = 'Vui lòng chọn loại hoạt động';
     if(!form.ngay_bd) errs.ngay_bd = 'Chọn thời gian bắt đầu';
     if(!form.ngay_kt) errs.ngay_kt = 'Chọn thời gian kết thúc';
@@ -61,6 +149,7 @@ export default function ManageActivity(){
     if(!form.nam_hoc?.match(/^\d{4}-\d{4}$/)) errs.nam_hoc = 'Năm học dạng YYYY-YYYY';
     if(!form.hoc_ky) errs.hoc_ky = 'Chọn học kỳ';
     if(form.sl_toi_da && Number(form.sl_toi_da) < 1) errs.sl_toi_da = 'Số lượng tối thiểu là 1';
+    if(form.dia_diem && form.dia_diem.trim().length < 2) errs.dia_diem = 'Địa điểm tối thiểu 2 ký tự';
     return errs;
   }
 
@@ -73,14 +162,31 @@ export default function ManageActivity(){
     if(Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
-    http.post('/activities', form)
+    // Normalize payload: cast numbers and handle optional fields
+    const payload = {
+      ten_hd: form.ten_hd,
+      loai_hd_id: form.loai_hd_id,
+      mo_ta: form.mo_ta || undefined,
+      ngay_bd: form.ngay_bd ? new Date(form.ngay_bd).toISOString() : undefined,
+      ngay_kt: form.ngay_kt ? new Date(form.ngay_kt).toISOString() : undefined,
+      han_dk: form.han_dk ? new Date(form.han_dk).toISOString() : null,
+      diem_rl: typeof form.diem_rl === 'number' ? form.diem_rl : Number(form.diem_rl || 0),
+      dia_diem: form.dia_diem || undefined,
+      sl_toi_da: form.sl_toi_da === '' || form.sl_toi_da === null || typeof form.sl_toi_da === 'undefined' ? undefined : Number(form.sl_toi_da),
+      nam_hoc: form.nam_hoc || undefined,
+      hoc_ky: form.hoc_ky || undefined,
+    };
+    const request = isEditMode
+      ? http.put(`/activities/${params.id}`, payload)
+      : http.post('/activities', payload);
+    request
       .then(function(){
-        setSuccess('Tạo hoạt động thành công');
+        setSuccess(isEditMode ? 'Cập nhật hoạt động thành công' : 'Tạo hoạt động thành công');
         // Điều hướng nhẹ sau 1.2s
         setTimeout(function(){ if (typeof window !== 'undefined') window.location.href = '/class/activities'; }, 1200);
       })
       .catch(function(err){
-        setError(err?.response?.data?.message || 'Lỗi tạo hoạt động');
+        setError(err?.response?.data?.message || (isEditMode ? 'Lỗi cập nhật hoạt động' : 'Lỗi tạo hoạt động'));
       })
       .finally(function(){ setSubmitting(false); });
   }
@@ -96,32 +202,36 @@ export default function ManageActivity(){
     ]);
   }
 
-  const Header = React.createElement('div', { className: 'mb-5' }, [
-    React.createElement('h2', { key: 't', className: 'text-2xl font-bold text-gray-900' }, 'Tạo hoạt động mới'),
-    React.createElement('p', { key: 'd', className: 'text-gray-600 mt-1' }, 'Nhập thông tin chi tiết để công bố hoạt động rèn luyện')
+  const FormHeader = React.createElement('div', { className: 'mb-5' }, [
+    React.createElement('h2', { key: 't', className: 'text-2xl font-bold text-gray-900' }, isEditMode ? 'Chỉnh sửa hoạt động' : 'Tạo hoạt động mới'),
+    React.createElement('p', { key: 'd', className: 'text-gray-600 mt-1' }, isEditMode ? 'Cập nhật nội dung hoạt động của bạn' : 'Nhập thông tin chi tiết để công bố hoạt động rèn luyện')
   ]);
 
-  const Feedback = React.createElement(React.Fragment, { key: 'fb' }, [
+  const FormFeedback = React.createElement(React.Fragment, { key: 'fb' }, [
     success && React.createElement('div', { key: 's', className: 'mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-green-800' }, success),
     error && React.createElement('div', { key: 'er', className: 'mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-red-800' }, error)
   ]);
 
-  return (
-    <ClassManagementLayout role="lop_truong">
+  const formCard = (
       <div className="max-w-3xl mx-auto bg-white border rounded-xl p-6 shadow-sm">
-        {Header}
-        {Feedback}
+        {FormHeader}
+        {FormFeedback}
         <form onSubmit={onSubmit} className="grid grid-cols-2 gap-4">
           {/* Tên & Loại */}
           <LabeledInput id="ten_hd" label="Tên hoạt động" hint="Ví dụ: Hiến máu nhân đạo" error={fieldErrors.ten_hd}>
             <input 
               id="ten_hd" 
+              type="text"
               name="ten_hd" 
               value={form.ten_hd} 
-              onChange={onChange} 
+              onChange={onChangeTenHd}
+              ref={tenHdRef}
+              maxLength={200}
+              autoComplete="off"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
               placeholder="Nhập tên hoạt động" 
             />
+            <div className="mt-1 text-xs text-gray-500">{(form.ten_hd || '').length}/200 ký tự</div>
           </LabeledInput>
           
           <LabeledInput id="loai_hd_id" label="Loại hoạt động" error={fieldErrors.loai_hd_id}>
@@ -204,12 +314,17 @@ export default function ManageActivity(){
           <LabeledInput id="dia_diem" label="Địa điểm" hint="Ví dụ: Hội trường A" error={fieldErrors.dia_diem}>
             <input 
               id="dia_diem" 
+              type="text"
               name="dia_diem" 
               value={form.dia_diem} 
-              onChange={onChange} 
+              onChange={onChangeDiaDiem}
+              ref={diaDiemRef}
+              maxLength={120}
+              autoComplete="off"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
               placeholder="Nhập địa điểm" 
             />
+            <div className="mt-1 text-xs text-gray-500">{(form.dia_diem || '').length}/120 ký tự</div>
           </LabeledInput>
 
           {/* Năm học & Học kỳ */}
@@ -263,14 +378,28 @@ export default function ManageActivity(){
             </button>
             <button 
               type="submit" 
-              disabled={submitting} 
+              disabled={submitting || Object.keys(validate()).length > 0}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {submitting ? 'Đang tạo...' : 'Tạo hoạt động'}
+              {submitting ? (isEditMode ? 'Đang lưu...' : 'Đang tạo...') : (isEditMode ? 'Lưu thay đổi' : 'Tạo hoạt động')}
             </button>
           </div>
         </form>
       </div>
-    </ClassManagementLayout>
+  );
+
+  if (isAdminRoute) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-5xl mx-auto p-6">
+          {formCard}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <ClassManagementLayout role="lop_truong">{formCard}</ClassManagementLayout>
   );
 }

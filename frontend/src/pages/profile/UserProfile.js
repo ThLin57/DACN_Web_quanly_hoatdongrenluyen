@@ -4,8 +4,10 @@ import http from '../../services/http';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { useAppStore } from '../../store/useAppStore';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function UserProfile() {
+  const { showSuccess, showError } = useNotification();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -105,10 +107,10 @@ export default function UserProfile() {
       
       setEditing(false);
       loadProfile();
-      alert('Cập nhật thông tin thành công!');
+      showSuccess('Cập nhật thông tin thành công', 'Thành công', 12000);
     } catch (error) {
       console.error('Failed to update profile:', error);
-      alert('Lỗi khi cập nhật thông tin: ' + (error.response?.data?.message || error.message));
+      showError('Lỗi khi cập nhật thông tin: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -116,7 +118,7 @@ export default function UserProfile() {
     e.preventDefault();
     
     if (passwordData.new_password !== passwordData.confirm_password) {
-      alert('Mật khẩu mới và xác nhận mật khẩu không khớp');
+      showError('Mật khẩu mới và xác nhận mật khẩu không khớp');
       return;
     }
 
@@ -129,10 +131,10 @@ export default function UserProfile() {
         new_password: '',
         confirm_password: ''
       });
-      alert('Đổi mật khẩu thành công!');
+      showSuccess('Đổi mật khẩu thành công', 'Thành công', 12000);
     } catch (error) {
       console.error('Failed to change password:', error);
-      alert('Lỗi khi đổi mật khẩu: ' + (error.response?.data?.message || error.message));
+      showError('Lỗi khi đổi mật khẩu: ' + (error.response?.data?.message || error.message));
     }
   };
 

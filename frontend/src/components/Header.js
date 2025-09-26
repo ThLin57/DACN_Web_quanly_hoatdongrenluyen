@@ -14,7 +14,9 @@ export default function Header() {
   
   // Lấy role từ store
   const { user } = useAppStore();
-  const role = user?.vai_tro || user?.role;
+  const computedRole = (profile?.vai_tro) || user?.vai_tro || user?.role || '';
+  const normalizedRole = String(computedRole).toUpperCase();
+  const isAdminContext = normalizedRole === 'ADMIN';
 
   React.useEffect(() => {
     try {
@@ -361,26 +363,88 @@ export default function Header() {
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                 <div className="py-1">
                   {/* Hiển thị links khác nhau dựa trên role */}
-                  {role === 'ADMIN' ? (
+                  {isAdminContext ? (
                     <>
                       <Link
-                        to="/admin/users/profile"
+                        replace
+                        to="/admin"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setOpen(false)}
                       >
-                        Quản lý thông tin
+                        Dashboard hệ thống
                       </Link>
                       <Link
-                        to="/admin/users/points"
+                        replace
+                        to="/admin/users"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setOpen(false)}
                       >
-                        Quản lý điểm RL
+                        Quản lý người dùng
+                      </Link>
+                      <Link
+                        replace
+                        to="/admin/activities"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setOpen(false)}
+                      >
+                        Quản lý hoạt động
+                      </Link>
+                      <Link
+                        replace
+                        to="/admin/approvals"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setOpen(false)}
+                      >
+                        Phê duyệt đăng ký
+                      </Link>
+                      <Link
+                        replace
+                        to="/admin/reports"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setOpen(false)}
+                      >
+                        Báo cáo – Thống kê
                       </Link>
                     </>
-                  ) : role === 'LOP_TRUONG' ? (
+                  ) : normalizedRole === 'LOP_TRUONG' ? (
                     <>
                       <Link
+                        replace
+                        to="/profile/user"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setOpen(false)}
+                      >
+                        Thông tin cá nhân
+                      </Link>
+                      <Link
+                        replace
+                        to="/class/students"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setOpen(false)}
+                      >
+                        Quản lý sinh viên
+                      </Link>
+                      <Link
+                        replace
+                        to="/class/approvals"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setOpen(false)}
+                      >
+                        Phê duyệt đăng ký
+                      </Link>
+                      <Link
+                        replace
+                        to="/profile/points"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setOpen(false)}
+                      >
+                        Điểm rèn luyện
+                      </Link>
+                    </>
+                  ) : normalizedRole === 'GIANG_VIEN' ? (
+                    <>
+                      <Link
+                        replace
                         to="/profile/user"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setOpen(false)}
@@ -402,11 +466,11 @@ export default function Header() {
                         Phê duyệt đăng ký
                       </Link>
                       <Link
-                        to="/profile/points"
+                        to="/teacher/approve"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setOpen(false)}
                       >
-                        Điểm rèn luyện
+                        Phê duyệt hoạt động
                       </Link>
                     </>
                   ) : (

@@ -42,8 +42,38 @@ export default function RegisterPage() {
   const [fullName, setFullName] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [classMonitorInfo, setClassMonitorInfo] = React.useState(null);
 
   const isNonAdmin = role && role !== 'admin';
+
+  // Kiểm tra lớp có lớp trưởng chưa
+  function checkClassMonitor(lopId) {
+    if (!lopId || role !== 'LOP_TRUONG') {
+      setClassMonitorInfo(null);
+      return;
+    }
+    
+    http.get(`/users/check-class-monitor/${lopId}`)
+      .then(function(res) {
+        const data = res.data;
+        if (data && data.success) {
+          setClassMonitorInfo(data.data);
+        }
+      })
+      .catch(function(err) {
+        console.error('Error checking class monitor:', err);
+        setClassMonitorInfo(null);
+      });
+  }
+
+  // Effect để kiểm tra khi chọn lớp
+  React.useEffect(function() {
+    if (classId && role === 'LOP_TRUONG') {
+      checkClassMonitor(classId);
+    } else {
+      setClassMonitorInfo(null);
+    }
+  }, [classId, role]);
 
   function handleRegister(e) {
     e.preventDefault();
@@ -53,14 +83,21 @@ export default function RegisterPage() {
       alert('Mật khẩu và xác nhận mật khẩu không khớp!');
       return;
     }
+    
+    // Kiểm tra nếu là lớp trưởng và lớp đã có lớp trưởng
+    if (role === 'LOP_TRUONG' && classMonitorInfo && classMonitorInfo.hasMonitor) {
+      setError(`Lớp ${classMonitorInfo.lop?.ten_lop || 'N/A'} đã có lớp trưởng: ${classMonitorInfo.monitor?.ho_ten || 'N/A'}`);
+      return;
+    }
+    
     setSubmitting(true);
-    http.post('/auth/register', {
-      name: isNonAdmin ? fullName || username : username,
-      maso: username,
-      email,
-      password,
-      confirmPassword: confirmPassword,
-      lopId: classId || undefined,
+    http.post('/users/register', {
+      ten_dn: username,
+      mat_khau: password,
+      email: email,
+      ho_ten: fullName || username,
+      vai_tro: role || 'SINH_VIEN',
+      lop_id: classId || undefined,
       khoa: faculty || undefined
     }).then(function(res){
       const data = res.data;
@@ -210,7 +247,7 @@ export default function RegisterPage() {
                   },
                   [
                     React.createElement('option', { key: 'none', value: '', disabled: true }, '-- Chọn vai trò --'),
-                    roles.map(function(r){ return React.createElement('option', { key: r.value, value: r.value }, r.label); })
+                    roles.map(function(r, index){ return React.createElement('option', { key: r.value || `role-${index}`, value: r.value }, r.label); })
                   ]
                 )
               ]
@@ -238,7 +275,7 @@ export default function RegisterPage() {
                     },
                     [
                       React.createElement('option', { key: 'none', value: '', disabled: true }, '-- Chọn khoa --'),
-                      faculties.map(function(f){ return React.createElement('option', { key: f.value, value: f.value }, f.label); })
+                      faculties.map(function(f, index){ return React.createElement('option', { key: f.value || `faculty-${index}`, value: f.value }, f.label); })
                     ]
                   )
                 ]
@@ -257,9 +294,47 @@ export default function RegisterPage() {
                     },
                     [
                       React.createElement('option', { key: 'none', value: '', disabled: true }, faculty ? '-- Chọn lớp --' : 'Chọn khoa trước'),
-                      classOptions.map(function(c){ return React.createElement('option', { key: c.value, value: c.value }, c.label); })
+                      classOptions.map(function(c, index){ return React.createElement('option', { key: c.value || `class-${index}`, value: c.value }, c.label); })
                     ]
-                  )
+                  ),
+                  // Hiển thị thông tin lớp trưởng nếu có
+                  classMonitorInfo && role === 'LOP_TRUONG' ? React.createElement(
+                    'div',
+                    { key: 'monitor-info', className: 'mt-3 p-3 rounded-lg border ' + (classMonitorInfo.hasMonitor ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200') },
+                    [
+                      classMonitorInfo.hasMonitor ? 
+                        React.createElement('div', { key: 'warning', className: 'text-red-700' },
+                          [
+                            React.createElement('div', { key: 'icon', className: 'flex items-center mb-1' },
+                              [
+                                React.createElement('svg', { key: 'svg', className: 'w-4 h-4 mr-2', fill: 'currentColor', viewBox: '0 0 20 20' },
+                                  React.createElement('path', { key: 'path', fillRule: 'evenodd', d: 'M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z', clipRule: 'evenodd' })
+                                ),
+                                React.createElement('span', { key: 'text', className: 'font-medium' }, 'Lớp đã có lớp trưởng')
+                              ]
+                            ),
+                            React.createElement('div', { key: 'details', className: 'text-sm' },
+                              `Lớp trưởng hiện tại: ${classMonitorInfo.monitor?.ho_ten || 'N/A'} (${classMonitorInfo.monitor?.mssv || 'N/A'})`
+                            )
+                          ]
+                        ) :
+                        React.createElement('div', { key: 'success', className: 'text-green-700' },
+                          [
+                            React.createElement('div', { key: 'icon', className: 'flex items-center mb-1' },
+                              [
+                                React.createElement('svg', { key: 'svg', className: 'w-4 h-4 mr-2', fill: 'currentColor', viewBox: '0 0 20 20' },
+                                  React.createElement('path', { key: 'path', fillRule: 'evenodd', d: 'M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z', clipRule: 'evenodd' })
+                                ),
+                                React.createElement('span', { key: 'text', className: 'font-medium' }, 'Lớp chưa có lớp trưởng')
+                              ]
+                            ),
+                            React.createElement('div', { key: 'details', className: 'text-sm' },
+                              'Bạn có thể đăng ký làm lớp trưởng cho lớp này'
+                            )
+                          ]
+                        )
+                    ]
+                  ) : null
                 ]
               )
             ]) : null,

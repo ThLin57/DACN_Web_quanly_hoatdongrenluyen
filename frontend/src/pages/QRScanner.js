@@ -2,13 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, X, CheckCircle, AlertCircle } from 'lucide-react';
 import jsQR from 'jsqr';
 import http from '../services/http';
+import { useNotification } from '../contexts/NotificationContext';
 
 export default function QRScanner() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [location, setLocation] = useState(null);
+  const { showSuccess, showError } = useNotification();
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -16,19 +17,7 @@ export default function QRScanner() {
   const intervalRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Get user location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation(`${position.coords.latitude},${position.coords.longitude}`);
-        },
-        (error) => {
-          console.warn('Could not get location:', error.message);
-        }
-      );
-    }
-  }, []);
+  // GPS disabled intentionally
 
   // Start camera scanning
   const startCamera = async () => {
@@ -144,9 +133,8 @@ export default function QRScanner() {
     setError('');
 
     try {
-      const response = await http.post('/attendance/scan', {
-        qrData,
-        location
+      const response = await http.post('/activities/attendance/scan', {
+        qr_code: qrData
       });
 
       setScanResult({
@@ -154,6 +142,7 @@ export default function QRScanner() {
         message: response.data.message,
         data: response.data.data
       });
+      showSuccess('Điểm danh thành công!');
 
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Có lỗi xảy ra khi điểm danh';
@@ -162,6 +151,7 @@ export default function QRScanner() {
         message: errorMessage
       });
       setError(errorMessage);
+      showError(errorMessage);
     } finally {
       setIsProcessing(false);
     }

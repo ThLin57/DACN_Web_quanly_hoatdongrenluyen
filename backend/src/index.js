@@ -101,8 +101,16 @@ const startServer = async () => {
     // Connect to database
     await connectDB();
     
-    // Initialize auto point calculation scheduler
-    autoPointCalculationService.init();
+    // Initialize auto point calculation scheduler if available
+    try {
+      if (autoPointCalculationService && typeof autoPointCalculationService.init === 'function') {
+        autoPointCalculationService.init();
+      } else {
+        logInfo('Auto point calculation service disabled (no-op)');
+      }
+    } catch (e) {
+      logError('Auto point calculation init failed (continuing without it)', e);
+    }
     
     // Start listening
     app.listen(config.port, () => {

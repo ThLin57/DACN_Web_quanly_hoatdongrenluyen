@@ -1,19 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, X, CheckCircle, AlertCircle, MapPin, Clock, Wifi, Battery, Signal } from 'lucide-react';
+import { Camera, Upload, X, CheckCircle, AlertCircle, Clock, Wifi, Battery, Signal } from 'lucide-react';
 import jsQR from 'jsqr';
 import http from '../services/http';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import { useAppStore } from '../store/useAppStore';
+import { useNotification } from '../contexts/NotificationContext';
 
 export default function QRScannerImproved() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [locationAccuracy, setLocationAccuracy] = useState(null);
-  const [gpsValidation, setGpsValidation] = useState({ valid: null, distance: null });
+  const { showSuccess, showError, showInfo } = useNotification();
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [activityInfo, setActivityInfo] = useState(null);
   const [feedback, setFeedback] = useState({ type: '', message: '', visible: false });
@@ -27,32 +26,7 @@ export default function QRScannerImproved() {
   const { user } = useAppStore();
   const role = user?.vai_tro || user?.role;
 
-  // Get high-accuracy location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      const options = {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      };
-      
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy
-          });
-          setLocationAccuracy(position.coords.accuracy);
-        },
-        (error) => {
-          console.warn('Could not get location:', error.message);
-          setError('Không thể lấy vị trí GPS. Vui lòng bật GPS và thử lại.');
-        },
-        options
-      );
-    }
-  }, []);
+  // GPS disabled intentionally
 
   // Load attendance history
   useEffect(() => {
@@ -105,28 +79,7 @@ export default function QRScannerImproved() {
   };
 
   // Validate GPS location
-  const validateGPSLocation = (activityGPS, allowedRadius = 100) => {
-    if (!location || !activityGPS) {
-      return { valid: false, distance: null, message: 'Không thể xác định vị trí' };
-    }
-
-    const [actLat, actLon] = activityGPS.split(',').map(Number);
-    const distance = calculateDistance(
-      location.latitude, 
-      location.longitude, 
-      actLat, 
-      actLon
-    );
-
-    const valid = distance <= allowedRadius;
-    return {
-      valid,
-      distance: Math.round(distance),
-      message: valid 
-        ? `Vị trí hợp lệ (${Math.round(distance)}m từ hoạt động)`
-        : `Bạn cách xa hoạt động ${Math.round(distance)}m (>=${allowedRadius}m)`
-    };
-  };
+  const validateGPSLocation = () => ({ valid: true, distance: null, message: '' });
 
   // Show feedback animation
   const showFeedback = (type, message, duration = 3000) => {
@@ -260,7 +213,7 @@ export default function QRScannerImproved() {
 
     try {
       // First, get activity info from QR code
-      const activityResponse = await http.get(`/activities/qr/${qrData}`);
+      const activityResponse = await http.get(`/activities/qr/${encodeURIComponent(qrData)}`);
       const activity = activityResponse?.data?.data;
       
       if (!activity) {
@@ -270,25 +223,10 @@ export default function QRScannerImproved() {
       setActivityInfo(activity);
 
       // Validate GPS location if activity has GPS requirement
-      if (activity.gps_location) {
-        const validation = validateGPSLocation(activity.gps_location, activity.gps_radius || 100);
-        setGpsValidation(validation);
-        
-        if (!validation.valid) {
-          throw new Error(validation.message);
-        }
-      }
+      // GPS validation disabled
 
       // Submit attendance
-      const response = await http.post('/attendance/scan', {
-        qr_code: qrData,
-        gps_location: location ? `${location.latitude},${location.longitude}` : null,
-        device_info: {
-          userAgent: navigator.userAgent,
-          timestamp: new Date().toISOString(),
-          accuracy: locationAccuracy
-        }
-      });
+      const response = await http.post('/activities/attendance/scan', { qr_code: qrData });
 
       const result = response?.data?.data;
       setScanResult({
@@ -300,6 +238,7 @@ export default function QRScannerImproved() {
       });
 
       showFeedback('success', `Điểm danh thành công! +${result?.points_awarded || activity.diem_rl} điểm`, 4000);
+      showSuccess('Điểm danh thành công!');
       loadAttendanceHistory(); // Refresh history
 
     } catch (error) {
@@ -311,6 +250,7 @@ export default function QRScannerImproved() {
         timestamp: new Date().toLocaleString('vi-VN')
       });
       showFeedback('error', errorMsg, 4000);
+      showError(errorMsg);
     } finally {
       setIsProcessing(false);
     }

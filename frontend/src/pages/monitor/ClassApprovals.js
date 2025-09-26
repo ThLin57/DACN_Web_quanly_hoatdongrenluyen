@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserCheck, UserX, Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Search, Filter, Eye, FileText } from 'lucide-react';
 import http from '../../services/http';
-import ClassManagementLayout from '../../components/ClassManagementLayout';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function ClassApprovals() {
   const [registrations, setRegistrations] = useState([]);
@@ -11,6 +11,7 @@ export default function ClassApprovals() {
   const [selectedRegistrations, setSelectedRegistrations] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const { showSuccess, showError, showWarning, confirm } = useNotification();
 
   // Status mappings
   const statusLabels = {
@@ -87,10 +88,10 @@ export default function ClassApprovals() {
       setProcessing(true);
       await http.put(`/class/registrations/${registrationId}/approve`);
       await loadRegistrations();
-      alert('Phê duyệt thành công!');
+      showSuccess('Đã phê duyệt đăng ký cho sinh viên.');
     } catch (err) {
       console.error('Error approving registration:', err);
-      alert('Lỗi khi phê duyệt: ' + (err.response?.data?.message || err.message));
+      showError('Lỗi khi phê duyệt: ' + (err.response?.data?.message || err.message));
     } finally {
       setProcessing(false);
     }
@@ -105,10 +106,10 @@ export default function ClassApprovals() {
       setProcessing(true);
       await http.put(`/class/registrations/${registrationId}/reject`, { reason });
       await loadRegistrations();
-      alert('Từ chối thành công!');
+      showSuccess('Đã từ chối đăng ký của sinh viên.');
     } catch (err) {
       console.error('Error rejecting registration:', err);
-      alert('Lỗi khi từ chối: ' + (err.response?.data?.message || err.message));
+      showError('Lỗi khi từ chối: ' + (err.response?.data?.message || err.message));
     } finally {
       setProcessing(false);
     }
@@ -116,11 +117,15 @@ export default function ClassApprovals() {
 
   const handleBulkApprove = async () => {
     if (selectedRegistrations.length === 0) {
-      alert('Vui lòng chọn ít nhất một đăng ký');
+      showWarning('Vui lòng chọn ít nhất một đăng ký');
       return;
     }
 
-    if (!window.confirm(`Bạn có chắc chắn muốn phê duyệt ${selectedRegistrations.length} đăng ký?`)) {
+    const confirmed = await confirm({
+      title: 'Xác nhận phê duyệt',
+      message: `Bạn có chắc chắn muốn phê duyệt ${selectedRegistrations.length} đăng ký?`
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -133,10 +138,10 @@ export default function ClassApprovals() {
       );
       setSelectedRegistrations([]);
       await loadRegistrations();
-      alert('Phê duyệt hàng loạt thành công!');
+      showSuccess(`Đã phê duyệt ${selectedRegistrations.length} đăng ký.`);
     } catch (err) {
       console.error('Error bulk approving:', err);
-      alert('Lỗi khi phê duyệt hàng loạt');
+      showError('Lỗi khi phê duyệt hàng loạt');
     } finally {
       setProcessing(false);
     }
@@ -144,13 +149,17 @@ export default function ClassApprovals() {
 
   const handleBulkReject = async () => {
     if (selectedRegistrations.length === 0) {
-      alert('Vui lòng chọn ít nhất một đăng ký');
+      showWarning('Vui lòng chọn ít nhất một đăng ký');
       return;
     }
 
     const reason = window.prompt('Lý do từ chối (tùy chọn):') || '';
 
-    if (!window.confirm(`Bạn có chắc chắn muốn từ chối ${selectedRegistrations.length} đăng ký?`)) {
+    const confirmed = await confirm({
+      title: 'Xác nhận từ chối',
+      message: `Bạn có chắc chắn muốn từ chối ${selectedRegistrations.length} đăng ký?`
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -163,10 +172,10 @@ export default function ClassApprovals() {
       );
       setSelectedRegistrations([]);
       await loadRegistrations();
-      alert('Từ chối hàng loạt thành công!');
+      showSuccess(`Đã từ chối ${selectedRegistrations.length} đăng ký.`);
     } catch (err) {
       console.error('Error bulk rejecting:', err);
-      alert('Lỗi khi từ chối hàng loạt');
+      showError('Lỗi khi từ chối hàng loạt');
     } finally {
       setProcessing(false);
     }
@@ -286,7 +295,7 @@ export default function ClassApprovals() {
   }
 
   return (
-    <ClassManagementLayout role="lop_truong">
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -439,6 +448,6 @@ export default function ClassApprovals() {
           </div>
         </div>
       </div>
-    </ClassManagementLayout>
+    </>
   );
 }

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Search, Filter, Award, TrendingUp, Eye, Mail, Phone, Calendar, User, BookOpen, Trophy, AlertCircle, Download, RefreshCw } from 'lucide-react';
 import http from '../../services/http';
-import ClassManagementLayout from '../../components/ClassManagementLayout';
 
 export default function ClassStudents() {
   const [students, setStudents] = useState([]);
@@ -294,7 +293,7 @@ export default function ClassStudents() {
   }
 
   return (
-    <ClassManagementLayout role="lop_truong">
+    <>
       <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -436,6 +435,6 @@ export default function ClassStudents() {
         onClose={() => setShowDetails(null)} 
       />
       </div>
-    </ClassManagementLayout>
+    </>
   );
 }

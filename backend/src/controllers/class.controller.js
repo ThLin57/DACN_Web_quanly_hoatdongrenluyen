@@ -13,23 +13,42 @@ class ClassController {
 
       logInfo('Getting class students', { userId, userRole });
 
-      // For demo, get all students - in real app, filter by class
+      // Find the current user (class monitor) to get their class ID
+      const monitor = await prisma.sinhVien.findFirst({
+        where: {
+          nguoi_dung_id: userId,
+        },
+        select: {
+          lop_id: true,
+        },
+      });
+
+      if (!monitor || !monitor.lop_id) {
+        logError('Monitor not found or not assigned to a class', { userId });
+        return sendResponse(res, 404, ApiResponse.error('Không tìm thấy thông tin lớp của bạn'));
+      }
+
+      const classId = monitor.lop_id;
+
+      // Get all students in the same class as the monitor
       const students = await prisma.sinhVien.findMany({
+        where: {
+          lop_id: classId, // Filter by the monitor's class ID
+        },
         include: {
           nguoi_dung: {
             select: {
               ho_ten: true,
-              email: true
-            }
+              email: true,
+            },
           },
           lop: {
             select: {
               ten_lop: true,
-              khoa: true
-            }
-          }
+              khoa: true,
+            },
+          },
         },
-        take: 50 // Limit for performance
       });
 
       // Calculate points for each student
@@ -162,7 +181,11 @@ class ClassController {
       logInfo('Approving registration', { registrationId, userId });
 
       const registration = await prisma.dangKyHoatDong.findUnique({
-        where: { id: registrationId }
+        where: { id: registrationId },
+        include: {
+          sinh_vien: { include: { nguoi_dung: true } },
+          hoat_dong: { select: { ten_hd: true } }
+        }
       });
 
       if (!registration) {
@@ -177,7 +200,29 @@ class ClassController {
         }
       });
 
-  return sendResponse(res, 200, ApiResponse.success(null, 'Phê duyệt đăng ký thành công'));
+      // Notify student that their registration has been approved
+      try {
+        const loai = await prisma.loaiThongBao.findFirst({ where: { ten_loai_tb: 'Hoạt động' } }).catch(() => null);
+        const loaiId = loai?.id || (await prisma.loaiThongBao.findFirst().catch(() => null))?.id;
+        const recipientId = registration?.sinh_vien?.nguoi_dung_id;
+        if (loaiId && recipientId) {
+          await prisma.thongBao.create({
+            data: {
+              tieu_de: 'Đăng ký đã được phê duyệt',
+              noi_dung: `Bạn đã được phê duyệt tham gia hoạt động "${registration?.hoat_dong?.ten_hd || ''}"`,
+              loai_tb_id: loaiId,
+              nguoi_gui_id: userId,
+              nguoi_nhan_id: recipientId,
+              muc_do_uu_tien: 'trung_binh',
+              phuong_thuc_gui: 'trong_he_thong'
+            }
+          }).catch(() => null);
+        }
+      } catch (e) {
+        logError('Notify student on class approval error', e, { registrationId, by: userId });
+      }
+
+      return sendResponse(res, 200, ApiResponse.success(null, 'Phê duyệt đăng ký thành công'));
 
     } catch (error) {
       logError('Error approving registration', error, { 
@@ -198,7 +243,11 @@ class ClassController {
       logInfo('Rejecting registration', { registrationId, reason, userId });
 
       const registration = await prisma.dangKyHoatDong.findUnique({
-        where: { id: registrationId }
+        where: { id: registrationId },
+        include: {
+          sinh_vien: { include: { nguoi_dung: true } },
+          hoat_dong: { select: { ten_hd: true } }
+        }
       });
 
       if (!registration) {
@@ -209,12 +258,34 @@ class ClassController {
         where: { id: registrationId },
         data: {
           trang_thai_dk: 'tu_choi',
-          ghi_chu: reason || 'Bị từ chối',
+          ly_do_tu_choi: reason || 'Bị từ chối',
           ngay_duyet: new Date()
         }
       });
 
-  return sendResponse(res, 200, ApiResponse.success(null, 'Từ chối đăng ký thành công'));
+      // Notify student that their registration has been rejected
+      try {
+        const loai = await prisma.loaiThongBao.findFirst({ where: { ten_loai_tb: 'Hoạt động' } }).catch(() => null);
+        const loaiId = loai?.id || (await prisma.loaiThongBao.findFirst().catch(() => null))?.id;
+        const recipientId = registration?.sinh_vien?.nguoi_dung_id;
+        if (loaiId && recipientId) {
+          await prisma.thongBao.create({
+            data: {
+              tieu_de: 'Đăng ký bị từ chối',
+              noi_dung: `Đăng ký tham gia hoạt động "${registration?.hoat_dong?.ten_hd || ''}" đã bị từ chối. Lý do: ${reason || 'Không đủ điều kiện tham gia'}`,
+              loai_tb_id: loaiId,
+              nguoi_gui_id: userId,
+              nguoi_nhan_id: recipientId,
+              muc_do_uu_tien: 'trung_binh',
+              phuong_thuc_gui: 'trong_he_thong'
+            }
+          }).catch(() => null);
+        }
+      } catch (e) {
+        logError('Notify student on class rejection error', e, { registrationId, by: userId });
+      }
+
+      return sendResponse(res, 200, ApiResponse.success(null, 'Từ chối đăng ký thành công'));
 
     } catch (error) {
       logError('Error rejecting registration', error, { 

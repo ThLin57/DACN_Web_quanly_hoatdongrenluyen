@@ -2,12 +2,18 @@
 import { useState, useEffect } from 'react';
 import AdminUserTabs from '../../components/AdminUserTabs';
 import Header from '../../components/Header';
-import Sidebar from '../../components/Sidebar';
+import AdminLayout from '../../components/AdminLayout';
 import { useAppStore } from '../../store/useAppStore';
 import http from '../../services/http';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -35,20 +41,34 @@ const UserManagement = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [page, filterRole, filterStatus]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await http.get('/users');
-      const data = response?.data?.data || response?.data || {};
-      
-      if (data.users && Array.isArray(data.users)) {
-        setUsers(data.users);
-      } else {
-        console.warn('Unexpected API response format:', data);
-        setUsers([]);
-      }
+      const response = await http.get('/api/admin/users', { params: { page, limit, search: search || undefined, role: filterRole || undefined, status: filterStatus || undefined } });
+      const body = response?.data || {};
+      const data = body.data || body || [];
+      const arr = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
+      const normalized = arr.map(function(u){
+        return {
+          id: u.id,
+          ten_dn: u.ten_dn || u.maso || '',
+          ho_ten: u.ho_ten || u.hoten || '',
+          email: u.email || '',
+          vai_tro: u.vai_tro || u.role || '',
+          sinh_vien: u.sinh_vien || {
+            lop: u.lop || '',
+            khoa: u.khoa || '',
+            sdt: u.sdt || ''
+          },
+          trang_thai: u.trang_thai || ''
+        };
+      });
+      setUsers(normalized);
+      // lấy tổng nếu có
+      const pagination = body.pagination || body.meta || {};
+      if (typeof pagination.total === 'number') setTotal(pagination.total);
     } catch (error) {
       console.error('Error fetching users:', error);
       setError('Không thể tải danh sách người dùng');
@@ -72,7 +92,7 @@ const UserManagement = () => {
         sdt: formData.sdt
       };
       
-      await http.post('/admin/users', userData);
+      await http.post('/api/admin/users', userData);
       alert('Tạo người dùng thành công!');
       setShowCreateModal(false);
       resetForm();
@@ -101,7 +121,7 @@ const UserManagement = () => {
         updateData.password = formData.password;
       }
       
-      await http.put(`/admin/users/${editingUser.id}`, updateData);
+      await http.put(`/api/admin/users/${editingUser.id}`, updateData);
       alert('Cập nhật người dùng thành công!');
       setEditingUser(null);
       resetForm();
@@ -117,7 +137,7 @@ const UserManagement = () => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa người dùng này?')) return;
     
     try {
-      await http.delete(`/users/${userId}`);
+      await http.delete(`/api/admin/users/${userId}`);
       alert('Xóa người dùng thành công!');
       fetchUsers();
     } catch (error) {
@@ -158,35 +178,67 @@ const UserManagement = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="flex">
-          <Sidebar role={role} />
-          <main className="flex-1">
-            <AdminUserTabs />
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-            </div>
-          </main>
-        </div>
+        <main className="max-w-7xl mx-auto">
+          <AdminUserTabs />
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="flex">
-        <Sidebar role={role} />
-        <main className="flex-1">
+    <AdminLayout active="users">
+      <main className="max-w-7xl mx-auto">
           <AdminUserTabs />
           <div className="p-6">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-3xl font-bold text-gray-900">Quản Lý Người Dùng</h1>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
-              >
-                Thêm Người Dùng
-              </button>
+              <div className="flex items-center gap-2">
+                <a
+                  href={(() => {
+                    const p = new URLSearchParams();
+                    if (search) p.set('search', search);
+                    if (filterRole) p.set('role', filterRole);
+                    if (filterStatus) p.set('status', filterStatus);
+                    const base = (typeof window !== 'undefined' ? (process.env.REACT_APP_API_URL || 'http://localhost:3001/api') : '')
+                      .replace(/\/$/, '');
+                    return base + '/admin/users/export?' + p.toString();
+                  })()}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-md border border-green-600 text-green-700 hover:bg-green-50 transition-colors"
+                >
+                  Xuất CSV
+                </a>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+                >
+                  Thêm Người Dùng
+                </button>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white rounded shadow p-4 mb-4 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm theo tên, email, mã số" className="border rounded px-3 py-2" />
+              <select value={filterRole} onChange={e=>setFilterRole(e.target.value)} className="border rounded px-3 py-2">
+                <option value="">Tất cả vai trò</option>
+                {roles.map(r=> <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+              <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="border rounded px-3 py-2">
+                <option value="">Tất cả trạng thái</option>
+                <option value="hoat_dong">Hoạt động</option>
+                <option value="khong_hoat_dong">Không hoạt động</option>
+                <option value="khoa">Khoá</option>
+              </select>
+              <div className="flex gap-2 md:justify-end">
+                <button onClick={()=>{ setPage(1); fetchUsers(); }} className="px-4 py-2 border rounded">Lọc</button>
+                <button onClick={()=>{ setSearch(''); setFilterRole(''); setFilterStatus(''); setPage(1); fetchUsers(); }} className="px-4 py-2 border rounded">Xoá lọc</button>
+              </div>
+              <div className="hidden md:flex" />
             </div>
 
             {error && (
@@ -267,8 +319,22 @@ const UserManagement = () => {
                       </td>
                     </tr>
                   ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td className="px-6 py-8 text-center text-sm text-gray-500" colSpan={7}>
+                        Không có dữ liệu. Thử bỏ lọc hoặc về Trang 1.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between mt-4">
+              <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-3 py-2 border rounded disabled:opacity-50">Trang trước</button>
+              <span>Trang {page}</span>
+              <button disabled={users.length < limit} onClick={()=>setPage(p=>p+1)} className="px-3 py-2 border rounded disabled:opacity-50">Trang sau</button>
             </div>
 
             {/* Create/Edit Modal */}
@@ -384,9 +450,8 @@ const UserManagement = () => {
               </div>
             )}
           </div>
-        </main>
-      </div>
-    </div>
+      </main>
+    </AdminLayout>
   );
 };
 

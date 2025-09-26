@@ -10,14 +10,18 @@ import ClassActivities from './monitor/ClassActivities';
 import ClassApprovals from './monitor/ClassApprovals';
 import ClassStudents from './monitor/ClassStudents';
 import ClassReports from './monitor/ClassReports';
+import ClassNotifications from './monitor/ClassNotifications';
+import TeacherDashboard from './teacher/TeacherDashboard';
+import ActivityApproval from './teacher/ActivityApproval';
 import ManageActivity from './ManageActivity';
 import QRScanner from './QRScanner';
 import QRAttendanceManagement from './QRAttendanceManagement';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import http from '../services/http';
 
 export default function Dashboard() {
   const [profile, setProfile] = React.useState(null);
+  const location = useLocation();
 
   React.useEffect(function load(){
     let mounted = true;
@@ -30,11 +34,25 @@ export default function Dashboard() {
   // Debug info for troubleshooting
   console.log('Dashboard Debug:', { profile, role });
 
-  // Determine default dashboard based on role
+  // Debug current path + role
+  const path = location.pathname || '';
+  console.log('Dashboard Route Debug:', { path, role });
+
+  // If role is teacher, keep class management routes working under this layout
+  if (role === 'giang_vien' || role === 'teacher') {
+    const isClassSection = path.startsWith('/class/');
+    const isMonitorSection = path.startsWith('/monitor');
+    if (!isClassSection && !isMonitorSection && !path.startsWith('/activities')) {
+      return React.createElement(Navigate, { to: '/teacher', replace: true });
+    }
+  }
+
+  // Determine default dashboard based on role (student by default)
   const getDefaultDashboard = () => {
     if (role === 'lop_truong' || role === 'monitor') {
       return React.createElement(MonitorDashboard);
     }
+    // Student default
     return React.createElement(DashboardStudentImproved);
   };
 
@@ -46,20 +64,26 @@ export default function Dashboard() {
       React.createElement('div', { key: 'body', className: 'flex' }, [
         React.createElement(Sidebar, { key: 'sb', role: role }),
         React.createElement('main', { key: 'main', className: 'flex-1 p-6' }, [
+          // Force render class-management pages directly to avoid nested route mismatches
+          (path.startsWith('/class/activities') && React.createElement(ClassActivities)) ||
+          (path.startsWith('/class/approvals') && React.createElement(ClassApprovals)) ||
+          (path.startsWith('/class/students') && React.createElement(ClassStudents)) ||
+          (path.startsWith('/class/reports') && React.createElement(ClassReports)) ||
+          (path.startsWith('/class/notifications') && React.createElement(ClassNotifications)) ||
+          (path.startsWith('/monitor') && React.createElement(MonitorDashboard)) ||
+          // Otherwise use routes for student/common pages
           React.createElement(Routes, { key: 'r' }, [
-            React.createElement(Route, { key: 'root', path: '/', element: getDefaultDashboard() }),
-            // Student routes
-            React.createElement(Route, { key: 'activities', path: '/activities', element: React.createElement(ActivitiesList) }),
-            React.createElement(Route, { key: 'my', path: '/my-activities', element: React.createElement(MyActivities) }),
-            React.createElement(Route, { key: 'scores', path: '/scores', element: React.createElement(Scores) }),
-            React.createElement(Route, { key: 'qr-scanner', path: '/qr-scanner', element: React.createElement(QRScanner) }),
-            // Monitor/Class management routes
-            React.createElement(Route, { key: 'create-activity', path: '/activities/create', element: React.createElement(ManageActivity) }),
-            React.createElement(Route, { key: 'qr-management', path: '/qr-management', element: React.createElement(QRAttendanceManagement) }),
-            React.createElement(Route, { key: 'class-activities', path: '/class/activities', element: React.createElement(ClassActivities) }),
-            React.createElement(Route, { key: 'class-approvals', path: '/class/approvals', element: React.createElement(ClassApprovals) }),
-            React.createElement(Route, { key: 'class-students', path: '/class/students', element: React.createElement(ClassStudents) }),
-            React.createElement(Route, { key: 'class-reports', path: '/class/reports', element: React.createElement(ClassReports) }),
+            React.createElement(Route, { key: 'root', index: true, element: getDefaultDashboard() }),
+            // Student routes (relative)
+            React.createElement(Route, { key: 'activities', path: 'activities', element: React.createElement(ActivitiesList) }),
+            React.createElement(Route, { key: 'my', path: 'my-activities', element: React.createElement(MyActivities) }),
+            React.createElement(Route, { key: 'scores', path: 'scores', element: React.createElement(Scores) }),
+            React.createElement(Route, { key: 'qr-scanner', path: 'qr-scanner', element: React.createElement(QRScanner) }),
+            // Monitor tools under this layout when accessed via root
+            React.createElement(Route, { key: 'create-activity', path: 'activities/create', element: React.createElement(ManageActivity) }),
+            React.createElement(Route, { key: 'qr-management', path: 'qr-management', element: React.createElement(QRAttendanceManagement) }),
+            // Teacher quick link if accessed here
+            React.createElement(Route, { key: 'teacher-approve', path: 'teacher/approve', element: React.createElement(ActivityApproval) }),
             React.createElement(Route, { key: 'fallback', path: '*', element: getDefaultDashboard() })
           ])
         ])

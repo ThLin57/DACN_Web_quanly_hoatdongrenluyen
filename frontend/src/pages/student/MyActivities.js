@@ -1,12 +1,17 @@
 import React from 'react';
 import { Clock, CheckCircle, XCircle, Calendar, MapPin, Award, Users, Eye, AlertCircle, UserX, QrCode, ChevronRight, FileText, Trophy } from 'lucide-react';
 import http from '../../services/http';
+import { useNotification } from '../../contexts/NotificationContext';
+import ActivityDetailModal from '../../components/ActivityDetailModal';
 
 export default function MyActivities(){
+  const { showSuccess, showError, confirm } = useNotification();
   const [tab, setTab] = React.useState('pending');
   const [data, setData] = React.useState({ pending: [], approved: [], joined: [], rejected: [] });
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+  const [selectedActivityId, setSelectedActivityId] = React.useState(null);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   React.useEffect(function(){
     let mounted = true;
@@ -54,22 +59,39 @@ export default function MyActivities(){
   }, []);
 
   async function cancelRegistration(hdId, activityName){
-    if (!window.confirm(`Bạn có chắc muốn hủy đăng ký hoạt động "${activityName}"?`)) return;
+    const confirmed = await confirm({
+      title: 'Xác nhận hủy đăng ký',
+      message: `Bạn có chắc muốn hủy đăng ký hoạt động "${activityName}"?`,
+      confirmText: 'Hủy đăng ký',
+      cancelText: 'Không'
+    });
+    
+    if (!confirmed) return;
     
     try {
       const res = await http.post(`/activities/${hdId}/cancel`);
       if (res.data?.success) {
-        alert('Đã hủy đăng ký thành công!');
+        showSuccess('Hủy đăng ký thành công', 'Thành công', 12000);
         // Reload data instead of full page refresh
         window.location.reload();
       } else {
-        alert(res.data?.message || 'Hủy đăng ký thành công');
+        showSuccess(res.data?.message || 'Hủy đăng ký thành công', 'Thông báo', 10000);
         window.location.reload();
       }
     } catch (e) {
       const errorMsg = e?.response?.data?.message || e?.message || 'Hủy đăng ký thất bại';
-      alert(errorMsg);
+      showError(errorMsg);
     }
+  }
+
+  function handleViewDetail(activityId) {
+    setSelectedActivityId(activityId);
+    setIsModalOpen(true);
+  }
+
+  function handleCloseModal() {
+    setIsModalOpen(false);
+    setSelectedActivityId(null);
   }
 
   function ActivityCard({ activity, status }) {
@@ -186,7 +208,7 @@ export default function MyActivities(){
       React.createElement('div', { key: 'actions', className: 'flex gap-2 pt-4 border-t' }, [
         React.createElement('button', { 
           key: 'detail',
-          onClick: () => window.location.href = `/activities/${activityData.id || activity.hd_id}`,
+          onClick: () => handleViewDetail(activityData.id || activity.hd_id),
           className: 'flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium'
         }, [
           React.createElement(Eye, { className: 'h-4 w-4' }),
@@ -357,7 +379,15 @@ export default function MyActivities(){
           });
         })
       )
-    ])
+    ]),
+
+    // Activity Detail Modal
+    React.createElement(ActivityDetailModal, {
+      key: 'modal',
+      activityId: selectedActivityId,
+      isOpen: isModalOpen,
+      onClose: handleCloseModal
+    })
   ]);
 }
 

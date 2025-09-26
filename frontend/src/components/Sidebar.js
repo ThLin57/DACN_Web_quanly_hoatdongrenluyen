@@ -6,7 +6,7 @@ function MenuItem(props) {
   const { to, icon, label, badge, active } = props;
   return React.createElement(
     Link,
-    { to: to, className: 'group relative flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-100 ' + (active ? 'bg-gray-100 text-gray-900' : 'text-gray-700') },
+    { to: to, replace: false, onClick: function onClick(){ try{ console.log('Sidebar click navigate', { to, label }); }catch(_){} }, className: 'group relative flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors ' + (active ? 'bg-gray-100 text-gray-900' : 'text-gray-700') },
     [
       // Indicator bar (active/hover)
       React.createElement('span', { key: 'i', className: 'absolute left-0 top-0 h-full w-1 rounded-r transition-all duration-200 ' + (active ? 'bg-purple-600 opacity-100' : 'bg-purple-600 opacity-0 group-hover:opacity-50') }),
@@ -45,6 +45,7 @@ export default function Sidebar(props) {
   const role = (roleProp || storeRole || '').toString().toLowerCase(); // 'student' | 'monitor' | 'teacher' | 'admin'
   const location = useLocation();
   const path = location.pathname;
+  const roleUpper = (role || '').toUpperCase();
   
   // Debug info for troubleshooting
   console.log('Sidebar Debug:', { role, storeRole, roleProp, path });
@@ -91,11 +92,14 @@ export default function Sidebar(props) {
     ])
   ];
 
-  const teacherMenu = monitorMenu.concat([
-    React.createElement(MenuItem, { key: 'qr-management-teacher', to: '/qr-management', label: 'Quản lý QR Điểm danh', active: isActive('/qr-management') }),
-    React.createElement(MenuItem, { key: 'approve-activities', to: '/teacher/approve', label: 'Phê duyệt Hoạt động', active: isActive('/teacher/approve') }),
-    React.createElement(MenuItem, { key: 'manage-types', to: '/teacher/types', label: 'Quản lý Loại hoạt động', active: isActive('/teacher/types') }),
-  ]);
+  const teacherMenu = [
+    // Menu giảng viên - các mục cần thiết
+    React.createElement(MenuItem, { key: 'dash-teacher', to: '/teacher', label: 'Dashboard', active: isActive('/teacher') || (isActive('/') && roleUpper === 'GIANG_VIEN') }),
+    React.createElement(MenuItem, { key: 'activities-teacher', to: '/activities', label: 'Danh sách Hoạt động', active: path.startsWith('/activities') && !path.startsWith('/activities/create') }),
+    React.createElement(MenuItem, { key: 'approve-activities-teacher', to: '/teacher/approve', label: 'Phê duyệt Hoạt động', active: isActive('/teacher/approve') }),
+    React.createElement(MenuItem, { key: 'manage-activity-types-teacher', to: '/teacher/activity-types', label: 'Quản lý Loại HĐ', active: isActive('/teacher/activity-types') }),
+    React.createElement(MenuItem, { key: 'manage-students-reports-teacher', to: '/teacher/students', label: 'QL Sinh viên & BC', active: isActive('/teacher/students') })
+  ];
 
   const adminMenu = [
     React.createElement(MenuItem, { key: 'sys-dashboard', to: '/admin', label: 'Dashboard Hệ thống', active: isActive('/admin') }),
@@ -103,9 +107,10 @@ export default function Sidebar(props) {
     React.createElement(MenuItem, { key: 'qr-management-admin', to: '/qr-management', label: 'Quản lý QR Điểm danh', active: isActive('/qr-management') }),
     React.createElement(MenuItem, { key: 'all-activities', to: '/admin/activities', label: 'Quản lý Hoạt động', active: isActive('/admin/activities') }),
     React.createElement(MenuItem, { key: 'approvals', to: '/admin/approvals', label: 'Phê duyệt Đăng ký', active: isActive('/admin/approvals') }),
+    React.createElement(MenuItem, { key: 'reports', to: '/admin/reports', label: 'Báo cáo - Thống kê', active: isActive('/admin/reports') }),
     React.createElement(Group, { key: 'system', title: 'Quản lý Hệ thống', defaultOpen: true }, [
       React.createElement(MenuItem, { key: 'roles', to: '/admin/roles', label: 'Quản lý Vai trò', active: isActive('/admin/roles') }),
-      React.createElement(MenuItem, { key: 'types', to: '/admin/types', label: 'Quản lý Loại hoạt động', active: isActive('/admin/types') }),
+      React.createElement(MenuItem, { key: 'types', to: '/admin/activity-types', label: 'Quản lý Loại hoạt động', active: isActive('/admin/activity-types') }),
       React.createElement(MenuItem, { key: 'notifications', to: '/admin/notifications', label: 'Quản lý Thông báo', active: isActive('/admin/notifications') }),
       React.createElement(MenuItem, { key: 'settings', to: '/admin/settings', label: 'Cấu hình Hệ thống', active: isActive('/admin/settings') }),
     ])
@@ -113,7 +118,6 @@ export default function Sidebar(props) {
 
   let items = studentMenu;
   // Check for monitor role with various possible values (case-insensitive)
-  const roleUpper = role.toUpperCase();
   // Show monitor menu only for monitor roles or explicit /monitor path
   if (roleUpper === 'MONITOR' || roleUpper === 'LOP_TRUONG' || roleUpper === 'CLASS_MONITOR' || path === '/monitor' || path.startsWith('/monitor')) {
     items = monitorMenu;
