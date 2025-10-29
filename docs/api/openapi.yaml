@@ -1,0 +1,576 @@
+openapi: 3.0.3
+info:
+  title: Hệ thống Quản lý Hoạt động Rèn luyện Sinh viên
+  description: |
+    API REST cho hệ thống quản lý hoạt động rèn luyện sinh viên.
+    Hỗ trợ các vai trò: Sinh viên, Lớp trưởng, Giảng viên, Admin.
+    
+    **Authentication**: JWT Bearer token trong header `Authorization: Bearer <token>`
+    
+    **Rate Limiting**: 100 requests/15 phút (mặc định), 20 requests/15 phút cho `/auth/login`
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001/api
+    description: Development server
+  - url: https://your-domain.com/api
+    description: Production server
+
+tags:
+  - name: Auth
+    description: Xác thực và quản lý tài khoản
+  - name: Activities
+    description: Quản lý hoạt động rèn luyện
+  - name: Registrations
+    description: Đăng ký tham gia hoạt động
+  - name: Attendance
+    description: Điểm danh QR
+  - name: Users
+    description: Quản lý người dùng
+  - name: Admin
+    description: Quản trị hệ thống
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ten_dn:
+          type: string
+        email:
+          type: string
+        ho_ten:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [SINH_VIEN, LOP_TRUONG, GIANG_VIEN, ADMIN]
+        
+    LoginRequest:
+      type: object
+      required:
+        - maso
+        - password
+      properties:
+        maso:
+          type: string
+          description: Mã số sinh viên hoặc email
+        password:
+          type: string
+          format: password
+          
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            user:
+              $ref: '#/components/schemas/User'
+        message:
+          type: string
+          
+    Activity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ma_hd:
+          type: string
+          nullable: true
+        ten_hd:
+          type: string
+        mo_ta:
+          type: string
+          nullable: true
+        loai_hd_id:
+          type: string
+          format: uuid
+        trang_thai:
+          type: string
+          enum: [cho_duyet, da_duyet, tu_choi, dang_dien_ra, hoan_thanh, huy]
+        diem_rl:
+          type: number
+        so_luong_dang_ky:
+          type: integer
+        so_luong_toi_da:
+          type: integer
+          
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: []
+      responses:
+        '200':
+          description: Server is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                  uptime:
+                    type: number
+                  environment:
+                    type: string
+
+  /auth/demo-accounts:
+    get:
+      summary: Lấy danh sách tài khoản demo
+      tags: [Auth]
+      responses:
+        '200':
+          description: Danh sách tài khoản demo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        username:
+                          type: string
+                        email:
+                          type: string
+                        name:
+                          type: string
+                        password:
+                          type: string
+
+  /auth/login:
+    post:
+      summary: Đăng nhập
+      description: Đăng nhập bằng mã số sinh viên/email và mật khẩu. Rate limit: 20 requests/15 phút.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Sai thông tin đăng nhập
+        '429':
+          description: Quá nhiều lần thử đăng nhập
+
+  /auth/register:
+    post:
+      summary: Đăng ký tài khoản sinh viên
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - maso
+                - email
+                - password
+                - confirmPassword
+              properties:
+                name:
+                  type: string
+                maso:
+                  type: string
+                  pattern: '^\d{7}$'
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+                confirmPassword:
+                  type: string
+                lopId:
+                  type: string
+                  format: uuid
+                khoa:
+                  type: string
+      responses:
+        '200':
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Dữ liệu không hợp lệ
+
+  /auth/forgot:
+    post:
+      summary: Yêu cầu khôi phục mật khẩu
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - identifier
+              properties:
+                identifier:
+                  type: string
+                  description: Email hoặc mã số sinh viên
+      responses:
+        '200':
+          description: Nếu tài khoản tồn tại, token đã được gửi (dev mode: trả về token trong response)
+
+  /auth/reset:
+    post:
+      summary: Đặt lại mật khẩu bằng token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - password
+                - confirmPassword
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 6
+                confirmPassword:
+                  type: string
+      responses:
+        '200':
+          description: Đặt lại mật khẩu thành công
+        '401':
+          description: Token không hợp lệ hoặc đã hết hạn
+
+  /auth/profile:
+    get:
+      summary: Lấy thông tin profile
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thông tin người dùng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /auth/points:
+    get:
+      summary: Lấy điểm rèn luyện của sinh viên
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: semester
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Điểm rèn luyện
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+
+  /auth/my-activities:
+    get:
+      summary: Lấy danh sách hoạt động đã đăng ký
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: semester
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Danh sách hoạt động
+
+  /activities:
+    get:
+      summary: Lấy danh sách hoạt động
+      tags: [Activities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: loai_hd_id
+          in: query
+          schema:
+            type: string
+        - name: trang_thai
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Danh sách hoạt động
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Activity'
+                      pagination:
+                        type: object
+
+    post:
+      summary: Tạo hoạt động mới (Lớp trưởng, Giảng viên, Admin)
+      tags: [Activities]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ten_hd
+                - loai_hd_id
+              properties:
+                ten_hd:
+                  type: string
+                mo_ta:
+                  type: string
+                loai_hd_id:
+                  type: string
+                  format: uuid
+                diem_rl:
+                  type: number
+                so_luong_toi_da:
+                  type: integer
+                thoi_gian_bat_dau:
+                  type: string
+                  format: date-time
+                thoi_gian_ket_thuc:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Tạo hoạt động thành công
+
+  /activities/{id}:
+    get:
+      summary: Lấy chi tiết hoạt động
+      tags: [Activities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Chi tiết hoạt động
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Activity'
+
+  /registrations:
+    post:
+      summary: Đăng ký tham gia hoạt động
+      tags: [Registrations]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hoat_dong_id
+              properties:
+                hoat_dong_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Đăng ký thành công
+        '400':
+          description: Hoạt động đã đầy hoặc đã đăng ký
+
+  /registrations/{id}/cancel:
+    post:
+      summary: Hủy đăng ký hoạt động
+      tags: [Registrations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Hủy đăng ký thành công
+
+  /attendance/qr-scan:
+    post:
+      summary: Điểm danh bằng QR code
+      tags: [Attendance]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - qr_code
+              properties:
+                qr_code:
+                  type: string
+      responses:
+        '200':
+          description: Điểm danh thành công
+
+  /admin/users:
+    get:
+      summary: Lấy danh sách người dùng (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: role
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Danh sách người dùng
+        '403':
+          description: Không có quyền truy cập
+
+  /admin/roles:
+    get:
+      summary: Lấy danh sách vai trò và quyền (Admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Danh sách vai trò
+        '403':
+          description: Không có quyền truy cập
+
+security:
+  - bearerAuth: []

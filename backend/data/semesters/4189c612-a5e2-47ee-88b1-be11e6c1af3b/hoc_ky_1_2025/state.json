@@ -1,0 +1,49 @@
+{
+  "classId": "4189c612-a5e2-47ee-88b1-be11e6c1af3b",
+  "semester": "hoc_ky_1",
+  "year": "2025",
+  "state": "ACTIVE",
+  "version": 4,
+  "history": [
+    {
+      "state": "LOCKED_HARD",
+      "timestamp": "2025-10-21T17:31:28.336Z",
+      "actor": "test-script",
+      "reason": "Test simulation"
+    },
+    {
+      "state": "ACTIVE",
+      "timestamp": "2025-10-21T17:31:28.476Z",
+      "actor": "test-script-reactivate",
+      "reason": "Auto-unlocked by semester re-activation (TEST)"
+    },
+    {
+      "state": "LOCKED_HARD",
+      "timestamp": "2025-10-28T11:46:46.190Z",
+      "actor": "dae773db-106e-4e42-944e-807368f895a1",
+      "reason": "Auto-locked by semester activation"
+    },
+    {
+      "state": "ACTIVE",
+      "timestamp": "2025-10-28T11:47:36.105Z",
+      "actor": "dae773db-106e-4e42-944e-807368f895a1",
+      "reason": "Auto-unlocked by semester re-activation"
+    },
+    {
+      "state": "LOCKED_HARD",
+      "timestamp": "2025-10-28T11:49:36.915Z",
+      "actor": "dae773db-106e-4e42-944e-807368f895a1",
+      "reason": "Auto-locked by semester activation"
+    },
+    {
+      "state": "ACTIVE",
+      "timestamp": "2025-10-28T11:49:46.065Z",
+      "actor": "dae773db-106e-4e42-944e-807368f895a1",
+      "reason": "Auto-unlocked by semester re-activation"
+    }
+  ],
+  "lock_level": null,
+  "closed_by": null,
+  "closed_at": null,
+  "grace_until": null
+}
