@@ -39,10 +39,7 @@ Hệ thống Quản lý Hoạt động Rèn luyện Sinh viên (SVRL) hỗ trợ
   - React: component-based UI, ecosystem phong phú
 
 Sơ đồ (ASCII):
-```
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/b6eebecb-e187-49f7-a3dc-f87d4009a50b" />
-```
-
 **Tài liệu mở rộng:**
 - Database Schema & ERD: [`docs/DATABASE_SCHEMA.md`](./docs/DATABASE_SCHEMA.md)
 - API Documentation (OpenAPI/Swagger): [`docs/api/openapi.yaml`](./docs/api/openapi.yaml)
