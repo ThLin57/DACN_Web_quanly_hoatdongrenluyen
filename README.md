@@ -1,4 +1,4 @@
-## 1) Giới thiệu ngắn, tính năng chính, ảnh chụp màn hình
+<img width="1919" height="990" alt="image" src="https://github.com/user-attachments/assets/9ab3066e-5fbd-43c0-bb02-b0b7f61bad43" />## 1) Giới thiệu ngắn, tính năng chính, ảnh chụp màn hình
 
 Hệ thống Quản lý Hoạt động Rèn luyện Sinh viên (SVRL) hỗ trợ quản lý, đăng ký, điểm danh, tính điểm rèn luyện theo học kỳ cho sinh viên; kèm phân quyền Lớp trưởng, Giảng viên và Quản trị.
 
@@ -9,6 +9,7 @@ Hệ thống Quản lý Hoạt động Rèn luyện Sinh viên (SVRL) hỗ trợ
   - Lớp trưởng: quản lý hoạt động lớp, phê duyệt đăng ký, thống kê
   - Giảng viên: phê duyệt hoạt động, quản lý loại hoạt động, xem danh sách SV
   - Admin: quản lý tài khoản, vai trò quyền, học kỳ, QR điểm danh
+<img width="1919" height="1031" alt="login" src="https://github.com/user-attachments/assets/15083e2f-2f69-447c-b35e-1c5fb4ced275" />
 
 Ảnh màn hình (minh họa): `frontend/public/VNUR.jpg`, `cntt.png`, `dhdl.jpg`, `it.jpg`
 
