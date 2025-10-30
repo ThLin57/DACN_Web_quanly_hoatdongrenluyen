@@ -1,4 +1,4 @@
-<img width="1919" height="990" alt="image" src="https://github.com/user-attachments/assets/9ab3066e-5fbd-43c0-bb02-b0b7f61bad43" />## 1) Giới thiệu ngắn, tính năng chính, ảnh chụp màn hình
+## 1) Giới thiệu ngắn, tính năng chính, ảnh chụp màn hình
 
 Hệ thống Quản lý Hoạt động Rèn luyện Sinh viên (SVRL) hỗ trợ quản lý, đăng ký, điểm danh, tính điểm rèn luyện theo học kỳ cho sinh viên; kèm phân quyền Lớp trưởng, Giảng viên và Quản trị.
 
@@ -10,8 +10,19 @@ Hệ thống Quản lý Hoạt động Rèn luyện Sinh viên (SVRL) hỗ trợ
   - Giảng viên: phê duyệt hoạt động, quản lý loại hoạt động, xem danh sách SV
   - Admin: quản lý tài khoản, vai trò quyền, học kỳ, QR điểm danh
 <img width="1919" height="1031" alt="login" src="https://github.com/user-attachments/assets/15083e2f-2f69-447c-b35e-1c5fb4ced275" />
-
-Ảnh màn hình (minh họa): `frontend/public/VNUR.jpg`, `cntt.png`, `dhdl.jpg`, `it.jpg`
+<img width="1912" height="973" alt="image" src="https://github.com/user-attachments/assets/71273812-241b-4a97-ab5e-c460b9182105" />
+<img width="1909" height="898" alt="image" src="https://github.com/user-attachments/assets/d66977f9-966f-4d80-b244-d38e97254281" />
+<img width="1915" height="994" alt="image" src="https://github.com/user-attachments/assets/a7a754d3-180f-4e4b-8098-1c7279b4d1dd" />
+<img width="1919" height="988" alt="image" src="https://github.com/user-attachments/assets/e3a3d3f3-b825-495e-9645-c62f1023c440" />
+<img width="1915" height="990" alt="image" src="https://github.com/user-attachments/assets/a15278b6-40a8-4e76-a154-0540b39c775a" />
+<img width="1915" height="991" alt="image" src="https://github.com/user-attachments/assets/606b2268-26d6-42b5-a5b7-e6d2756afd89" />
+<img width="1613" height="924" alt="image" src="https://github.com/user-attachments/assets/51e25124-e4c9-47d4-9bf4-3e8e67639291" />
+<img width="1898" height="982" alt="image" src="https://github.com/user-attachments/assets/64b176a4-f828-4b78-b14b-0b4d8b5bd597" />
+<img width="1916" height="980" alt="image" src="https://github.com/user-attachments/assets/1c1075d0-aefb-486f-b8a7-feb770070f8e" />
+<img width="1919" height="984" alt="image" src="https://github.com/user-attachments/assets/2bade2c5-e878-4c1d-ac21-06352d179639" />
+<img width="1911" height="986" alt="image" src="https://github.com/user-attachments/assets/8f653046-bba6-49e0-b337-62a7e029efa0" />
+<img width="1916" height="986" alt="image" src="https://github.com/user-attachments/assets/e8bdc10f-622d-4067-950e-4db4b2b24af6" />
+<img width="1904" height="762" alt="image" src="https://github.com/user-attachments/assets/0f0335d3-90cc-4b1b-8193-ad9f3635c8d6" />
 
 ## 2) Kiến trúc (tổng thể, tech stack, lý do chọn)
 
@@ -29,8 +40,7 @@ Hệ thống Quản lý Hoạt động Rèn luyện Sinh viên (SVRL) hỗ trợ
 
 Sơ đồ (ASCII):
 ```
-Browser (React) --Axios--> Express API --Prisma--> PostgreSQL
-                 <-- JWT --             <-- data --
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/b6eebecb-e187-49f7-a3dc-f87d4009a50b" />
 ```
 
 **Tài liệu mở rộng:**
@@ -80,15 +90,15 @@ npm run seed
 ## 4) Tài khoản demo, Swagger, link deploy
 
 - **Demo accounts API**: `GET /api/auth/demo-accounts`
-  - `admin` / `Admin@123`
-  - `gv001` / `Teacher@123`
-  - `lt001` / `Monitor@123`
-  - `2021003` / `Student@123`
+  - `admin` / `123456`
+  - `gv001` / `123456`
+  - `202101003` / `123456` lớp trưởng
+  - `202101001` / `123456` sinh viên
 - **API Documentation**:
   - OpenAPI/Swagger spec: [`docs/api/openapi.yaml`](./docs/api/openapi.yaml)
   - Swagger UI: Import file `openapi.yaml` vào [Swagger Editor](https://editor.swagger.io) hoặc [Swagger UI](https://petstore.swagger.io)
   - Có thể cấu hình Swagger UI trong backend (xem [Hướng dẫn](#swagger-ui-setup))
-- **Link deploy**: (cập nhật khi có, ví dụ: `https://svrl.example.com`)
+- **Link deploy**: (hoatdongrenluyen.io.vn)
 
 ### Swagger UI Setup (tùy chọn)
 
